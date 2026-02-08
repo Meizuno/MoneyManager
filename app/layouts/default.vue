@@ -1,0 +1,54 @@
+<script setup lang="ts">
+const navLinks = [
+  { label: "Overview", to: "/" },
+  { label: "Import", to: "/import" },
+  { label: "Transactions", to: "/transactions" },
+];
+</script>
+
+<template>
+  <div class="min-h-screen bg-[var(--surface)] text-[var(--ink)]">
+    <header class="sticky top-0 z-40 border-b border-white/5 bg-black/40 backdrop-blur">
+      <UContainer class="flex flex-col gap-4 py-6 md:flex-row md:items-center md:justify-between">
+        <div class="flex items-center gap-3">
+          <div class="grid h-12 w-12 place-items-center rounded-2xl bg-cyan-500/15">
+            <UIcon name="i-heroicons-banknotes" class="text-cyan-300" />
+          </div>
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
+              Money Manager
+            </p>
+            <h1 class="text-2xl font-semibold tracking-tight text-white">
+              Cashflow control
+            </h1>
+          </div>
+        </div>
+        <nav class="flex flex-wrap gap-2 text-sm font-semibold text-slate-200">
+          <NuxtLink
+            v-for="link in navLinks"
+            :key="link.to"
+            :to="link.to"
+            class="rounded-full border border-transparent px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-cyan-400/40 hover:text-white"
+            active-class="border-cyan-400/60 text-white"
+          >
+            {{ link.label }}
+          </NuxtLink>
+        </nav>
+      </UContainer>
+    </header>
+    <div class="border-b border-amber-400/20 bg-amber-400/10">
+      <UContainer class="py-2">
+        <div class="flex items-center gap-2 text-xs text-amber-200">
+          <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>
+          <span class="font-semibold">Anonymous mode:</span>
+          <span>Data imported while anonymous is not stored.</span>
+        </div>
+      </UContainer>
+    </div>
+    <main class="py-10">
+      <UContainer>
+        <NuxtPage />
+      </UContainer>
+    </main>
+  </div>
+</template>
