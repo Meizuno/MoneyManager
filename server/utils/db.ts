@@ -1,33 +1,17 @@
-import type { H3Event } from "h3";
 import { createError } from "h3";
+import { PrismaClient } from "@prisma/client";
 
-type D1Database = {
-  prepare: (query: string) => {
-    bind: (...values: unknown[]) => {
-      all: () => Promise<{ results: Record<string, unknown>[] }>;
-      run: () => Promise<{ success: boolean }>;
-    };
-    all: () => Promise<{ results: Record<string, unknown>[] }>;
-    run: () => Promise<{ success: boolean }>;
-  };
-  batch: (
-    statements: Array<{
-      bind: (...values: unknown[]) => {
-        all: () => Promise<{ results: Record<string, unknown>[] }>;
-        run: () => Promise<{ success: boolean }>;
-      };
-    }>,
-  ) => Promise<unknown[]>;
-};
+let prisma: PrismaClient | null = null;
 
-export const getDb = (event: H3Event): D1Database => {
-  const db = (event.context.cloudflare as { env?: { DB?: D1Database } } | undefined)
-    ?.env?.DB;
-  if (!db) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: "Database binding not available.",
-    });
+export const getPrisma = () => {
+  if (!prisma) {
+    if (!process.env.DATABASE_URL) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: "DATABASE_URL is not configured.",
+      });
+    }
+    prisma = new PrismaClient();
   }
-  return db;
+  return prisma;
 };

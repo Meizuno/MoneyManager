@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { parseDate } from "@internationalized/date";
 import type { TransactionInput } from "~/types/transaction";
 
 const props = defineProps<{
@@ -20,9 +21,23 @@ const form = ref({
   type: "other",
   category: "other",
 });
+const formDateOpen = ref(false);
 const isValid = computed(
   () => Boolean(form.value.date) && Boolean(form.value.description) && form.value.amount !== null,
 );
+const safeParseDate = (value: string) => {
+  try {
+    return value ? parseDate(value) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+const formDateValue = computed({
+  get: () => safeParseDate(form.value.date),
+  set: (value) => {
+    form.value.date = value ? value.toString() : "";
+  },
+});
 const clearForm = () => {
   form.value = {
     date: getToday(),
@@ -62,7 +77,24 @@ const submitForm = () => {
     <div class="mt-6 grid gap-3">
       <div class="grid gap-3 md:grid-cols-2">
         <UFormField label="Date" help="Use the posting date from your statement.">
-          <UInput v-model="form.date" type="date" placeholder="2026-02-08" class="w-full" />
+          <UPopover v-model:open="formDateOpen" :content="{ side: 'bottom', sideOffset: 8 }">
+            <template #anchor>
+              <UInputDate v-model="formDateValue" class="w-full">
+                <template #trailing>
+                  <UButton
+                    icon="i-heroicons-calendar-days"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    @click="formDateOpen = !formDateOpen"
+                  />
+                </template>
+              </UInputDate>
+            </template>
+            <template #content>
+              <UCalendar v-model="formDateValue" />
+            </template>
+          </UPopover>
         </UFormField>
         <UFormField label="Description" help="Keep it short so it’s easy to scan.">
           <UInput v-model="form.description" placeholder="Coffee with team" class="w-full" />

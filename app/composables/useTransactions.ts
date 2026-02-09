@@ -19,6 +19,9 @@ export const useTransactions = () => {
   const statusMessage = useState<string>("transactions_status", () => "");
   const filterCategory = useState<string>("transactions_filter", () => "all");
   const filterType = useState<string>("transactions_filter_type", () => "all");
+  const filterDateFrom = useState<string>("transactions_filter_date_from", () => "");
+  const filterDateTo = useState<string>("transactions_filter_date_to", () => "");
+  const filterDatePreset = useState<string>("transactions_filter_date_preset", () => "all");
   const localOnly = useState<boolean>("transactions_local_only", () => false);
 
   const typeOptions = [
@@ -56,6 +59,13 @@ export const useTransactions = () => {
     return ["all", ...list];
   });
   const types = computed(() => ["all", ...typeOptions]);
+  const datePresetOptions = [
+    { label: "All time", value: "all" },
+    { label: "This month", value: "this-month" },
+    { label: "Previous month", value: "previous-month" },
+    { label: "This year", value: "this-year" },
+    { label: "Custom range", value: "custom" },
+  ];
 
   const totals = computed(() => {
     let income = 0;
@@ -118,16 +128,80 @@ export const useTransactions = () => {
 
   const { apiFetch } = useAuth();
 
+  const normalizeTypeFilter = (value: string) => {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return "all";
+    if (normalized === "outcome") return "expense";
+    return normalized;
+  };
+
+  const normalizedFilterType = computed(() => normalizeTypeFilter(filterType.value));
+
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const applyDatePreset = (preset: string) => {
+    const today = new Date();
+    if (preset === "all") {
+      filterDateFrom.value = "";
+      filterDateTo.value = "";
+      return;
+    }
+    if (preset === "this-month") {
+      filterDateFrom.value = formatDate(new Date(today.getFullYear(), today.getMonth(), 1));
+      filterDateTo.value = formatDate(today);
+      return;
+    }
+    if (preset === "previous-month") {
+      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const end = new Date(today.getFullYear(), today.getMonth(), 0);
+      filterDateFrom.value = formatDate(start);
+      filterDateTo.value = formatDate(end);
+      return;
+    }
+    if (preset === "this-year") {
+      filterDateFrom.value = formatDate(new Date(today.getFullYear(), 0, 1));
+      filterDateTo.value = formatDate(today);
+      return;
+    }
+  };
+
+  watch(
+    filterDatePreset,
+    (value) => {
+      applyDatePreset(value);
+    },
+    { immediate: true },
+  );
+
   const applyLocalFilters = (items: Transaction[]) => {
     return items.filter((item) => {
       const matchesCategory =
         filterCategory.value === "all" || item.category === filterCategory.value;
-      const matchesType = filterType.value === "all" || item.type === filterType.value;
-      return matchesCategory && matchesType;
+      const normalizedType = normalizedFilterType.value;
+      let matchesType = true;
+      if (normalizedType === "income") {
+        matchesType = (item.amount ?? 0) >= 0;
+      } else if (normalizedType === "expense") {
+        matchesType = (item.amount ?? 0) < 0;
+      } else if (normalizedType !== "all") {
+        const itemType = normalizeTypeFilter(item.type ?? "other");
+        matchesType = itemType === normalizedType;
+      }
+      const date = item.date;
+      const matchesDateFrom =
+        !filterDateFrom.value || date >= filterDateFrom.value;
+      const matchesDateTo =
+        !filterDateTo.value || date <= filterDateTo.value;
+      return matchesCategory && matchesType && matchesDateFrom && matchesDateTo;
     });
   };
 
-  const loadTransactions = async (opts?: { force?: boolean }) => {
+  const loadTransactions = async (opts?: { force?: boolean; preserveStatus?: boolean }) => {
     if (localOnly.value) {
       transactions.value = applyLocalFilters(localTransactions.value);
       return;
@@ -136,12 +210,18 @@ export const useTransactions = () => {
       return;
     }
     loading.value = true;
-    resetMessages();
+    if (!opts?.preserveStatus) {
+      resetMessages();
+    } else {
+      errorMessage.value = "";
+    }
     try {
       const data = await apiFetch<{ items: Transaction[] }>("/api/transactions", {
         query: {
           category: filterCategory.value,
-          type: filterType.value,
+          type: normalizedFilterType.value,
+          dateFrom: filterDateFrom.value || undefined,
+          dateTo: filterDateTo.value || undefined,
         },
       });
       transactions.value = data.items ?? [];
@@ -210,14 +290,15 @@ export const useTransactions = () => {
         method: "POST",
         body: formData,
       });
-      statusMessage.value = `Imported ${result.imported} rows, skipped ${result.skipped}.`;
+      const importSummary = `Imported ${result.imported} rows, skipped ${result.skipped}.`;
       if (result.persisted === false && result.items) {
         localTransactions.value = result.items;
         transactions.value = applyLocalFilters(result.items);
         localOnly.value = true;
-        statusMessage.value += " Not saved to database.";
+        statusMessage.value = `${importSummary} Not saved to database.`;
       } else {
-        await loadTransactions();
+        await loadTransactions({ preserveStatus: true });
+        statusMessage.value = importSummary;
       }
       return result;
     } catch (error) {
@@ -233,10 +314,14 @@ export const useTransactions = () => {
     statusMessage,
     filterCategory,
     filterType,
+    filterDateFrom,
+    filterDateTo,
+    filterDatePreset,
     typeOptions,
     categoryOptions,
     categories,
     types,
+    datePresetOptions,
     totals,
     categoryTotals,
     maxCategoryTotal,

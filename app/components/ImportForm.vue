@@ -2,20 +2,16 @@
 import { computed, ref } from "vue";
 
 const emit = defineEmits<{
-  (event: "submit", payload: { file: File; defaultCategory: string; defaultType: string }): void;
+  (event: "submit", payload: { file: File }): void;
 }>();
 
 const csvFile = ref<File | null>(null);
-const csvDefaultCategory = ref("other");
-const csvDefaultType = ref("other");
 const isReady = computed(() => Boolean(csvFile.value));
 
 const submitImport = () => {
   if (!csvFile.value) return;
   emit("submit", {
     file: csvFile.value,
-    defaultCategory: csvDefaultCategory.value || "other",
-    defaultType: csvDefaultType.value || "other",
   });
   csvFile.value = null;
 };
@@ -32,39 +28,38 @@ const submitImport = () => {
       </div>
       <UBadge color="primary" variant="subtle">CSV upload</UBadge>
     </div>
-    <div class="mt-6 grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-      <div class="space-y-3">
+    <div class="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <div class="space-y-4">
         <UFormField label="CSV file" help="Export from your bank, then drag and drop the file here.">
           <UFileUpload v-model="csvFile" accept=".csv" :multiple="false" />
         </UFormField>
+        <div class="flex flex-wrap items-center gap-3">
+          <UButton
+            color="primary"
+            variant="solid"
+            :disabled="!isReady"
+            @click="submitImport"
+          >
+            Import transactions
+          </UButton>
+          <p class="text-xs text-slate-400">
+            We auto-assign missing type or category as “other”.
+          </p>
+        </div>
+      </div>
+      <div class="space-y-3">
         <UAlert
           color="neutral"
           variant="subtle"
           title="Expected columns"
           description="date, description, amount, debit/credit, type, category."
         />
-      </div>
-      <div class="flex flex-col gap-3">
-        <UFormField
-          label="Default category"
-          help="Applied when a row has no category."
-        >
-          <UInput v-model="csvDefaultCategory" placeholder="other" />
-        </UFormField>
-        <UFormField label="Default type" help="Applied when a row has no type.">
-          <UInput v-model="csvDefaultType" placeholder="other" />
-        </UFormField>
-        <UButton
-          color="primary"
-          variant="solid"
-          :disabled="!isReady"
-          @click="submitImport"
-        >
-          Import transactions
-        </UButton>
-        <p class="text-xs text-slate-400">
-          Your data stays private and is saved only for signed-in users.
-        </p>
+        <UAlert
+          color="neutral"
+          variant="subtle"
+          title="Privacy"
+          description="Your data stays private and is saved only for signed-in users."
+        />
       </div>
     </div>
   </UCard>

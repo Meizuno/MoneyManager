@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type { Transaction, TransactionInput } from "~/types/transaction";
+import { parseDate } from "@internationalized/date";
 
 const props = defineProps<{
   transactions: Transaction[];
@@ -11,6 +11,10 @@ const props = defineProps<{
   categories: string[];
   filterType: string;
   types: string[];
+  filterDateFrom: string;
+  filterDateTo: string;
+  filterDatePreset: string;
+  datePresetOptions: { label: string; value: string }[];
 }>();
 
 const emit = defineEmits<{
@@ -19,9 +23,14 @@ const emit = defineEmits<{
   (event: "focus-form"): void;
   (event: "update:filterCategory", value: string): void;
   (event: "update:filterType", value: string): void;
+  (event: "update:filterDateFrom", value: string): void;
+  (event: "update:filterDateTo", value: string): void;
+  (event: "update:filterDatePreset", value: string): void;
 }>();
 
 const editingId = ref<number | null>(null);
+const editDateOpen = ref(false);
+const rangeDateOpen = ref(false);
 const editItem = ref({
   date: "",
   description: "",
@@ -34,6 +43,35 @@ const totalAmount = computed(() =>
   props.transactions.reduce((sum, item) => sum + (item.amount ?? 0), 0),
 );
 const hasTransactions = computed(() => props.transactions.length > 0);
+const safeParseDate = (value: string) => {
+  try {
+    return value ? parseDate(value) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+const editDateValue = computed({
+  get: () => safeParseDate(editItem.value.date),
+  set: (value) => {
+    editItem.value.date = value ? value.toString() : "";
+  },
+});
+const dateRangeValue = computed({
+  get: () => ({
+    start: safeParseDate(props.filterDateFrom),
+    end: safeParseDate(props.filterDateTo),
+  }),
+  set: (value) => {
+    emit(
+      "update:filterDateFrom",
+      value?.start ? value.start.toString() : "",
+    );
+    emit(
+      "update:filterDateTo",
+      value?.end ? value.end.toString() : "",
+    );
+  },
+});
 
 const startEdit = (item: Transaction) => {
   editingId.value = item.id;
@@ -87,7 +125,7 @@ const submitEdit = (id: number) => {
       </div>
     </div>
     <div class="mt-4 flex flex-wrap items-end justify-between gap-4">
-      <div class="grid w-full gap-3 md:max-w-xl md:grid-cols-2">
+      <div class="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-3">
         <UFormField
           label="Filter by category"
           help="Narrow the list to a single spending category."
@@ -108,6 +146,36 @@ const submitEdit = (id: number) => {
             @update:model-value="emit('update:filterType', $event as string)"
           />
         </UFormField>
+        <UFormField label="Date preset" help="Quickly scope a common range.">
+          <USelect
+            :model-value="filterDatePreset"
+            :items="datePresetOptions"
+            class="w-full"
+            @update:model-value="emit('update:filterDatePreset', $event as string)"
+          />
+        </UFormField>
+        <div v-if="filterDatePreset === 'custom'" class="md:col-span-2 xl:col-span-4">
+          <UFormField label="Date range">
+            <UPopover v-model:open="rangeDateOpen" :content="{ side: 'bottom', sideOffset: 8 }">
+              <template #anchor>
+                <UInputDate v-model="dateRangeValue" range class="w-full">
+                  <template #trailing>
+                    <UButton
+                      icon="i-heroicons-calendar-days"
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      @click="rangeDateOpen = !rangeDateOpen"
+                    />
+                  </template>
+                </UInputDate>
+              </template>
+              <template #content>
+                <UCalendar v-model="dateRangeValue" range />
+              </template>
+            </UPopover>
+          </UFormField>
+        </div>
       </div>
       <div class="text-sm text-slate-400">
         {{ transactions.length }} entries shown
@@ -115,6 +183,7 @@ const submitEdit = (id: number) => {
     </div>
     <div class="mt-4 space-y-3">
       <UCard
+        v-if="hasTransactions"
         v-for="item in transactions"
         :key="item.id"
         class="surface-panel"
@@ -122,7 +191,24 @@ const submitEdit = (id: number) => {
         <template v-if="editingId === item.id">
           <div class="grid gap-3 md:grid-cols-2">
             <UFormField label="Date">
-              <UInput v-model="editItem.date" type="date" />
+              <UPopover v-model:open="editDateOpen" :content="{ side: 'bottom', sideOffset: 8 }">
+                <template #anchor>
+                  <UInputDate v-model="editDateValue">
+                    <template #trailing>
+                      <UButton
+                        icon="i-heroicons-calendar-days"
+                        color="neutral"
+                        variant="ghost"
+                        size="xs"
+                        @click="editDateOpen = !editDateOpen"
+                      />
+                    </template>
+                  </UInputDate>
+                </template>
+                <template #content>
+                  <UCalendar v-model="editDateValue" />
+                </template>
+              </UPopover>
             </UFormField>
             <UFormField label="Description">
               <UInput v-model="editItem.description" />
@@ -191,7 +277,7 @@ const submitEdit = (id: number) => {
           </div>
         </template>
       </UCard>
-      <UCard v-if="!hasTransactions" class="surface-panel border border-dashed border-white/10">
+      <UCard v-else class="surface-panel border border-dashed border-white/10">
         <div class="flex flex-col items-start gap-3">
           <div>
             <p class="text-sm font-semibold text-white">No transactions yet</p>

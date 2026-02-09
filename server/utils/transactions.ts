@@ -7,8 +7,68 @@ export const normalizeCategory = (category?: string | null) => {
 };
 
 export const normalizeTransactionType = (value?: string | null) => {
-  const trimmed = (value ?? "").trim();
-  return trimmed.length > 0 ? trimmed : "other";
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) return "other";
+
+  const ascii = normalized.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const map: Record<string, string> = {
+    other: "other",
+    income: "income",
+    expense: "expense",
+    transfer: "transfer",
+    fee: "fee",
+    conversion: "conversion",
+    refund: "refund",
+    credit: "income",
+    debit: "expense",
+    withdrawal: "expense",
+    payment: "expense",
+    cash: "expense",
+    salary: "income",
+    refunds: "refund",
+    fees: "fee",
+    exchange: "conversion",
+    swap: "conversion",
+    "transfer in": "transfer",
+    "transfer out": "transfer",
+    "incoming transfer": "transfer",
+    "outgoing transfer": "transfer",
+    prijem: "income",
+    vydaj: "expense",
+    vydaje: "expense",
+    poplatek: "fee",
+    prevod: "transfer",
+    vratka: "refund",
+    konverze: "conversion",
+    smena: "conversion",
+  };
+
+  return map[ascii] ?? "other";
+};
+
+export const expandTransactionTypeFilter = (value?: string | null) => {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized || normalized === "all") return [];
+
+  const ascii = normalized.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const aliases: Record<string, string[]> = {
+    other: ["other"],
+    income: ["income", "credit", "salary", "prijem"],
+    expense: ["expense", "debit", "withdrawal", "payment", "cash", "vydaj", "vydaje"],
+    transfer: [
+      "transfer",
+      "transfer in",
+      "transfer out",
+      "incoming transfer",
+      "outgoing transfer",
+      "prevod",
+    ],
+    fee: ["fee", "fees", "poplatek"],
+    conversion: ["conversion", "exchange", "swap", "konverze", "smena"],
+    refund: ["refund", "refunds", "vratka"],
+  };
+
+  return aliases[ascii] ?? [ascii];
 };
 
 export const normalizeTransactionInput = (input: TransactionInput) => {

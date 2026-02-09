@@ -1,12 +1,12 @@
 <script setup lang="ts">
 const { errorMessage, statusMessage, importCsv } = useTransactions();
 
-const handleImport = async (payload: {
-  file: File;
-  defaultCategory: string;
-  defaultType: string;
-}) => {
-  await importCsv(payload);
+const handleImport = async (payload: { file: File }) => {
+  await importCsv({
+    file: payload.file,
+    defaultCategory: "other",
+    defaultType: "other",
+  });
 };
 
 useHead({
@@ -32,7 +32,7 @@ useHead({
         <h3 class="text-lg font-semibold text-white">How it works</h3>
         <ol class="mt-4 space-y-3 text-sm text-slate-300">
           <li>1. Export a CSV from your bank or card provider.</li>
-          <li>2. Upload it here and set default category/type if needed.</li>
+          <li>2. Upload it here and we’ll fill missing type/category as “other”.</li>
           <li>3. Review and edit any entries on the Transactions page.</li>
         </ol>
         <UAlert

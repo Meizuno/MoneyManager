@@ -9,8 +9,12 @@ const {
   statusMessage,
   filterCategory,
   filterType,
+  filterDateFrom,
+  filterDateTo,
+  filterDatePreset,
   categories,
   types,
+  datePresetOptions,
   typeOptions,
   categoryOptions,
   formatAmount,
@@ -22,7 +26,7 @@ const {
 
 await loadTransactions();
 
-watch([filterCategory, filterType], () => {
+watch([filterCategory, filterType, filterDateFrom, filterDateTo], () => {
   loadTransactions({ force: true });
 });
 
@@ -99,8 +103,12 @@ useHead({
         :category-options="categoryOptions"
         :categories="categories"
         :types="types"
+        :date-preset-options="datePresetOptions"
         v-model:filter-category="filterCategory"
         v-model:filter-type="filterType"
+        v-model:filter-date-from="filterDateFrom"
+        v-model:filter-date-to="filterDateTo"
+        v-model:filter-date-preset="filterDatePreset"
         :format-amount="formatAmount"
         @update="handleUpdate"
         @delete="handleDelete"

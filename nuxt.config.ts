@@ -3,22 +3,14 @@ export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
 
-  nitro: {
-    preset: "cloudflare_module",
-
-    cloudflare: {
-      deployConfig: true,
-      nodeCompat: true,
-    },
-  },
-
-  modules: ["nitro-cloudflare-dev", "@nuxt/ui", "nuxt-auth-utils"],
+  modules: ["@nuxt/ui", "nuxt-auth-utils"],
   css: ["~/assets/css/main.css"],
   runtimeConfig: {
     auth: {
       jwtSecret: "",
       accessTokenTTL: "900",
       refreshTokenTTL: "2592000",
+      allowedEmails: "",
     },
   },
 });

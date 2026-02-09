@@ -60,10 +60,6 @@ const headerMatchers = [
     key: "date",
     names: [
       "date",
-      "booking date",
-      "transaction date",
-      "posting date",
-      "datum provedení",
       "datum zaúčtování",
     ],
   },
@@ -71,14 +67,7 @@ const headerMatchers = [
     key: "description",
     names: [
       "description",
-      "details",
-      "narrative",
-      "merchant",
-      "name",
       "název obchodníka",
-      "název protiúčtu",
-      "název účtu",
-      "zpráva",
       "poznámka",
       "vlastní poznámka",
     ],
@@ -87,11 +76,7 @@ const headerMatchers = [
     key: "amount",
     names: [
       "amount",
-      "value",
-      "total",
       "zaúčtovaná částka",
-      "původní částka",
-      "poplatky",
     ],
   },
   {
@@ -113,11 +98,16 @@ const headerMatchers = [
 const matchHeader = (header: string) => {
   const value = normalize(header);
   for (const matcher of headerMatchers) {
-    if (matcher.names.some((name) => value === name)) {
-      return matcher.key;
+    const exactIndex = matcher.names.findIndex((name) => value === name);
+    if (exactIndex !== -1) {
+      return { key: matcher.key, priority: matcher.names.length - exactIndex };
     }
-    if (matcher.names.some((name) => value.includes(name))) {
-      return matcher.key;
+    const includesIndex = matcher.names.findIndex((name) => value.includes(name));
+    if (includesIndex !== -1) {
+      return {
+        key: matcher.key,
+        priority: matcher.names.length - includesIndex,
+      };
     }
   }
   return null;
@@ -137,27 +127,32 @@ export const mapCsvRows = (rows: CsvRow[]) => {
       continue;
     }
     const rowData: Record<string, string> = {};
+    const rowPriority: Record<string, number> = {};
     for (let j = 0; j < headers.length; j += 1) {
-      const key = headers[j];
-      if (!key) continue;
+      const header = headers[j];
+      if (!header) continue;
+      const { key, priority } = header;
       const value = row[j] ?? "";
-      if (rowData[key] && rowData[key].trim().length > 0) {
+      const hasValue = value.trim().length > 0;
+      const currentPriority = rowPriority[key] ?? 0;
+      if (!hasValue && rowData[key]) {
         continue;
       }
-      if (value.trim().length === 0 && rowData[key]) {
-        continue;
+      if (!rowData[key] || priority > currentPriority) {
+        rowData[key] = value;
+        rowPriority[key] = priority;
       }
-      rowData[key] = value;
     }
 
     const amount = parseAmount(rowData.amount, rowData.debit, rowData.credit);
-    if (!rowData.date || !rowData.description || amount === null) {
+    const parsedDate = rowData.date ? parseDateToISO(rowData.date) : null;
+    if (!parsedDate || amount === null) {
       continue;
     }
 
     mapped.push({
-      date: rowData.date.trim(),
-      description: rowData.description.trim(),
+      date: parsedDate,
+      description: rowData.description?.trim() || "Transaction",
       amount,
       currency: rowData.currency ? rowData.currency.trim() : null,
       type: rowData.type ? rowData.type.trim() : null,
@@ -166,6 +161,75 @@ export const mapCsvRows = (rows: CsvRow[]) => {
   }
 
   return { mapped, skipped: rows.length - 1 - mapped.length };
+};
+
+const parseDateToISO = (value: string) => {
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const isoMatch = raw.match(
+    /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
+  );
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    const hour = isoMatch[4] ? Number(isoMatch[4]) : 0;
+    const minute = isoMatch[5] ? Number(isoMatch[5]) : 0;
+    const second = isoMatch[6] ? Number(isoMatch[6]) : 0;
+    return toISODateTime(year, month, day, hour, minute, second);
+  }
+
+  const dmyMatch = raw.match(
+    /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
+  );
+  if (dmyMatch) {
+    const day = Number(dmyMatch[1]);
+    const month = Number(dmyMatch[2]);
+    const year = Number(dmyMatch[3]);
+    const hour = dmyMatch[4] ? Number(dmyMatch[4]) : 0;
+    const minute = dmyMatch[5] ? Number(dmyMatch[5]) : 0;
+    const second = dmyMatch[6] ? Number(dmyMatch[6]) : 0;
+    return toISODateTime(year, month, day, hour, minute, second);
+  }
+
+  return null;
+};
+
+const toISODateTime = (
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+) => {
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute) ||
+    !Number.isFinite(second)
+  ) {
+    return null;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  if (second < 0 || second > 59) return null;
+
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    date.getUTCHours() !== hour ||
+    date.getUTCMinutes() !== minute ||
+    date.getUTCSeconds() !== second
+  ) {
+    return null;
+  }
+  return date.toISOString();
 };
 
 const parseAmount = (
