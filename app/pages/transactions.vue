@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from "vue";
+import { ref, watch } from "vue";
 import type { TransactionInput } from "~/types/transaction";
 
 const {
@@ -8,7 +8,9 @@ const {
   errorMessage,
   statusMessage,
   filterCategory,
+  filterType,
   categories,
+  types,
   typeOptions,
   categoryOptions,
   formatAmount,
@@ -20,8 +22,8 @@ const {
 
 await loadTransactions();
 
-watch(filterCategory, () => {
-  loadTransactions();
+watch([filterCategory, filterType], () => {
+  loadTransactions({ force: true });
 });
 
 const handleCreate = async (payload: TransactionInput) => {
@@ -36,6 +38,11 @@ const handleDelete = async (id: number) => {
   await deleteTransaction(id);
 };
 
+const formRef = ref<HTMLElement | null>(null);
+const focusForm = () => {
+  formRef.value?.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
 useHead({
   title: "Transactions",
 });
@@ -45,17 +52,13 @@ useHead({
   <div class="flex flex-col gap-8">
     <UPageHeader
       title="Manage entries"
-      description="Add manual entries or edit existing transactions."
+      description="Add manual entries, tidy imports, and keep your ledger accurate."
       class="surface-panel rounded-3xl px-6 py-6"
     >
       <template #headline>
         <UBadge color="primary" variant="subtle">Transactions</UBadge>
       </template>
     </UPageHeader>
-
-    <UFormField label="Filter spending category" class="max-w-xs">
-      <USelect v-model="filterCategory" :items="categories" />
-    </UFormField>
 
     <UAlert
       v-if="loading"
@@ -83,18 +86,25 @@ useHead({
     />
 
     <div class="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-      <TransactionForm
-        :type-options="typeOptions"
-        :category-options="categoryOptions"
-        @submit="handleCreate"
-      />
+      <div ref="formRef">
+        <TransactionForm
+          :type-options="typeOptions"
+          :category-options="categoryOptions"
+          @submit="handleCreate"
+        />
+      </div>
       <TransactionList
         :transactions="transactions"
         :type-options="typeOptions"
         :category-options="categoryOptions"
+        :categories="categories"
+        :types="types"
+        v-model:filter-category="filterCategory"
+        v-model:filter-type="filterType"
         :format-amount="formatAmount"
         @update="handleUpdate"
         @delete="handleDelete"
+        @focus-form="focusForm"
       />
     </div>
   </div>

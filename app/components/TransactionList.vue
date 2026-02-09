@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import type { Transaction, TransactionInput } from "~/types/transaction";
 
 const props = defineProps<{
@@ -7,11 +7,18 @@ const props = defineProps<{
   typeOptions: string[];
   categoryOptions: string[];
   formatAmount: (amount: number, currency?: string | null) => string;
+  filterCategory: string;
+  categories: string[];
+  filterType: string;
+  types: string[];
 }>();
 
 const emit = defineEmits<{
   (event: "update", payload: { id: number; input: TransactionInput }): void;
   (event: "delete", id: number): void;
+  (event: "focus-form"): void;
+  (event: "update:filterCategory", value: string): void;
+  (event: "update:filterType", value: string): void;
 }>();
 
 const editingId = ref<number | null>(null);
@@ -23,6 +30,10 @@ const editItem = ref({
   type: "other",
   category: "other",
 });
+const totalAmount = computed(() =>
+  props.transactions.reduce((sum, item) => sum + (item.amount ?? 0), 0),
+);
+const hasTransactions = computed(() => props.transactions.length > 0);
 
 const startEdit = (item: Transaction) => {
   editingId.value = item.id;
@@ -58,7 +69,50 @@ const submitEdit = (id: number) => {
 
 <template>
   <UCard class="glass-card">
-    <h2 class="text-xl font-semibold text-white">Transactions</h2>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-xl font-semibold text-white">Transactions</h2>
+        <p class="mt-1 text-sm text-slate-300">
+          Review, edit, or clean up entries from imports and manual adds.
+        </p>
+      </div>
+      <div class="rounded-2xl bg-white/5 px-4 py-2 text-right">
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Net total</p>
+        <p
+          class="text-lg font-semibold"
+          :class="totalAmount >= 0 ? 'text-emerald-600' : 'text-rose-600'"
+        >
+          {{ formatAmount(totalAmount) }}
+        </p>
+      </div>
+    </div>
+    <div class="mt-4 flex flex-wrap items-end justify-between gap-4">
+      <div class="grid w-full gap-3 md:max-w-xl md:grid-cols-2">
+        <UFormField
+          label="Filter by category"
+          help="Narrow the list to a single spending category."
+          class="w-full"
+        >
+          <USelect
+            :model-value="filterCategory"
+            :items="categories"
+            class="w-full"
+            @update:model-value="emit('update:filterCategory', $event as string)"
+          />
+        </UFormField>
+        <UFormField label="Filter by type" help="Show only a single transaction type.">
+          <USelect
+            :model-value="filterType"
+            :items="types"
+            class="w-full"
+            @update:model-value="emit('update:filterType', $event as string)"
+          />
+        </UFormField>
+      </div>
+      <div class="text-sm text-slate-400">
+        {{ transactions.length }} entries shown
+      </div>
+    </div>
     <div class="mt-4 space-y-3">
       <UCard
         v-for="item in transactions"
@@ -68,7 +122,7 @@ const submitEdit = (id: number) => {
         <template v-if="editingId === item.id">
           <div class="grid gap-3 md:grid-cols-2">
             <UFormField label="Date">
-              <UInput v-model="editItem.date" />
+              <UInput v-model="editItem.date" type="date" />
             </UFormField>
             <UFormField label="Description">
               <UInput v-model="editItem.description" />
@@ -88,7 +142,7 @@ const submitEdit = (id: number) => {
           </div>
           <div class="mt-3 flex gap-2">
             <UButton color="primary" variant="solid" @click="submitEdit(item.id)">
-              Save
+              Save changes
             </UButton>
             <UButton variant="outline" color="neutral" @click="cancelEdit">
               Cancel
@@ -137,9 +191,24 @@ const submitEdit = (id: number) => {
           </div>
         </template>
       </UCard>
-      <p v-if="transactions.length === 0" class="text-sm text-slate-500">
-        No transactions yet. Import a CSV or add your first entry.
-      </p>
+      <UCard v-if="!hasTransactions" class="surface-panel border border-dashed border-white/10">
+        <div class="flex flex-col items-start gap-3">
+          <div>
+            <p class="text-sm font-semibold text-white">No transactions yet</p>
+            <p class="mt-1 text-sm text-slate-400">
+              Import a CSV for bulk entries or add a manual transaction.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <UButton color="primary" variant="solid" to="/import">
+              Import CSV
+            </UButton>
+            <UButton variant="outline" color="neutral" @click="$emit('focus-form')">
+              Add manually
+            </UButton>
+          </div>
+        </div>
+      </UCard>
     </div>
   </UCard>
 </template>

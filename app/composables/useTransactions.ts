@@ -13,10 +13,12 @@ type ImportResult = {
 
 export const useTransactions = () => {
   const transactions = useState<Transaction[]>("transactions", () => []);
+  const localTransactions = useState<Transaction[]>("transactions_local", () => []);
   const loading = useState<boolean>("transactions_loading", () => false);
   const errorMessage = useState<string>("transactions_error", () => "");
   const statusMessage = useState<string>("transactions_status", () => "");
   const filterCategory = useState<string>("transactions_filter", () => "all");
+  const filterType = useState<string>("transactions_filter_type", () => "all");
   const localOnly = useState<boolean>("transactions_local_only", () => false);
 
   const typeOptions = [
@@ -46,12 +48,14 @@ export const useTransactions = () => {
 
   const categories = computed(() => {
     const set = new Set<string>(["other"]);
-    transactions.value.forEach((item) => {
+    const source = localOnly.value ? localTransactions.value : transactions.value;
+    source.forEach((item) => {
       if (item.category) set.add(item.category);
     });
     const list = Array.from(set).sort((a, b) => a.localeCompare(b));
     return ["all", ...list];
   });
+  const types = computed(() => ["all", ...typeOptions]);
 
   const totals = computed(() => {
     let income = 0;
@@ -114,15 +118,31 @@ export const useTransactions = () => {
 
   const { apiFetch } = useAuth();
 
+  const applyLocalFilters = (items: Transaction[]) => {
+    return items.filter((item) => {
+      const matchesCategory =
+        filterCategory.value === "all" || item.category === filterCategory.value;
+      const matchesType = filterType.value === "all" || item.type === filterType.value;
+      return matchesCategory && matchesType;
+    });
+  };
+
   const loadTransactions = async (opts?: { force?: boolean }) => {
-    if (localOnly.value && !opts?.force && transactions.value.length > 0) {
+    if (localOnly.value) {
+      transactions.value = applyLocalFilters(localTransactions.value);
+      return;
+    }
+    if (!opts?.force && transactions.value.length > 0) {
       return;
     }
     loading.value = true;
     resetMessages();
     try {
       const data = await apiFetch<{ items: Transaction[] }>("/api/transactions", {
-        query: { category: filterCategory.value },
+        query: {
+          category: filterCategory.value,
+          type: filterType.value,
+        },
       });
       transactions.value = data.items ?? [];
       localOnly.value = false;
@@ -192,7 +212,8 @@ export const useTransactions = () => {
       });
       statusMessage.value = `Imported ${result.imported} rows, skipped ${result.skipped}.`;
       if (result.persisted === false && result.items) {
-        transactions.value = result.items;
+        localTransactions.value = result.items;
+        transactions.value = applyLocalFilters(result.items);
         localOnly.value = true;
         statusMessage.value += " Not saved to database.";
       } else {
@@ -211,9 +232,11 @@ export const useTransactions = () => {
     errorMessage,
     statusMessage,
     filterCategory,
+    filterType,
     typeOptions,
     categoryOptions,
     categories,
+    types,
     totals,
     categoryTotals,
     maxCategoryTotal,
