@@ -1,6 +1,3 @@
-import { computed } from "vue";
-import type { Transaction, TransactionInput } from "~/types/transaction";
-
 type ImportPayload = {
   file: File;
   defaultCategory: string;
@@ -115,6 +112,8 @@ export const useTransactions = () => {
     statusMessage.value = "";
   };
 
+  const { apiFetch } = useAuth();
+
   const loadTransactions = async (opts?: { force?: boolean }) => {
     if (localOnly.value && !opts?.force && transactions.value.length > 0) {
       return;
@@ -122,7 +121,7 @@ export const useTransactions = () => {
     loading.value = true;
     resetMessages();
     try {
-      const data = await $fetch<{ items: Transaction[] }>("/api/transactions", {
+      const data = await apiFetch<{ items: Transaction[] }>("/api/transactions", {
         query: { category: filterCategory.value },
       });
       transactions.value = data.items ?? [];
@@ -137,7 +136,7 @@ export const useTransactions = () => {
   const createTransaction = async (input: TransactionInput) => {
     resetMessages();
     try {
-      await $fetch("/api/transactions", {
+      await apiFetch("/api/transactions", {
         method: "POST",
         body: input,
       });
@@ -153,7 +152,7 @@ export const useTransactions = () => {
   const updateTransaction = async (id: number, input: TransactionInput) => {
     resetMessages();
     try {
-      await $fetch(`/api/transactions/${id}`, {
+      await apiFetch(`/api/transactions/${id}`, {
         method: "PUT",
         body: input,
       });
@@ -169,7 +168,7 @@ export const useTransactions = () => {
   const deleteTransaction = async (id: number) => {
     resetMessages();
     try {
-      await $fetch(`/api/transactions/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
       statusMessage.value = "Transaction deleted.";
       await loadTransactions();
       return true;
@@ -187,7 +186,7 @@ export const useTransactions = () => {
     formData.append("defaultType", payload.defaultType || "other");
 
     try {
-      const result = await $fetch<ImportResult>("/api/transactions/import", {
+      const result = await apiFetch<ImportResult>("/api/transactions/import", {
         method: "POST",
         body: formData,
       });

@@ -64,7 +64,7 @@ const submitForm = () => {
       <UFormField label="Spending category">
         <USelect v-model="form.category" :items="categoryOptions" />
       </UFormField>
-      <UButton color="cyan" variant="solid" @click="submitForm">
+      <UButton color="primary" variant="solid" @click="submitForm">
         Add transaction
       </UButton>
     </div>

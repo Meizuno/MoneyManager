@@ -22,7 +22,7 @@ useHead({
       class="surface-panel rounded-3xl px-6 py-6"
     >
       <template #headline>
-        <UBadge color="cyan" variant="subtle">Import</UBadge>
+        <UBadge color="primary" variant="subtle">Import</UBadge>
       </template>
     </UPageHeader>
 
@@ -30,7 +30,7 @@ useHead({
 
     <UAlert
       v-if="errorMessage"
-      color="rose"
+      color="error"
       variant="subtle"
       class="glass-card"
       title="Import failed"
@@ -38,7 +38,7 @@ useHead({
     />
     <UAlert
       v-if="statusMessage"
-      color="emerald"
+      color="success"
       variant="subtle"
       class="glass-card"
       title="Import result"

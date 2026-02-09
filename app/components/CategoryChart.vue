@@ -14,7 +14,7 @@ defineProps<{
         <div class="flex items-center justify-between text-xs font-semibold">
           <span class="text-slate-200">{{ item.category }}</span>
           <UBadge
-            :color="item.total >= 0 ? 'emerald' : 'rose'"
+            :color="item.total >= 0 ? 'success' : 'error'"
             variant="subtle"
             class="uppercase"
           >

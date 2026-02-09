@@ -87,7 +87,7 @@ const submitEdit = (id: number) => {
             </UFormField>
           </div>
           <div class="mt-3 flex gap-2">
-            <UButton color="cyan" variant="solid" @click="submitEdit(item.id)">
+            <UButton color="primary" variant="solid" @click="submitEdit(item.id)">
               Save
             </UButton>
             <UButton variant="outline" color="neutral" @click="cancelEdit">
@@ -105,10 +105,10 @@ const submitEdit = (id: number) => {
                 {{ item.description }}
               </p>
               <div class="mt-2 flex flex-wrap gap-2">
-                <UBadge variant="subtle" color="cyan">
+                <UBadge variant="subtle" color="primary">
                   {{ item.type || "other" }}
                 </UBadge>
-                <UBadge variant="subtle" color="violet">
+                <UBadge variant="subtle" color="secondary">
                   {{ item.category || "other" }}
                 </UBadge>
               </div>
@@ -126,7 +126,7 @@ const submitEdit = (id: number) => {
                 </UButton>
                 <UButton
                   size="sm"
-                  color="rose"
+                  color="error"
                   variant="subtle"
                   @click="emit('delete', item.id)"
                 >

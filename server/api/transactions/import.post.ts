@@ -1,8 +1,4 @@
 import { getHeader, readBody, readFormData } from "h3";
-import { getDb } from "../../utils/db";
-import { mapCsvRows, parseCsv } from "../../utils/csv";
-import { normalizeCategory, normalizeTransactionType } from "../../utils/transactions";
-import type { Transaction } from "~/types/transaction";
 
 export default defineEventHandler(async (event) => {
   const contentType = getHeader(event, "content-type") ?? "";

@@ -11,6 +11,20 @@ const {
 
 await loadTransactions();
 
+onMounted(() => {
+  const route = useRoute();
+  if (route.query.auth === "forbidden") {
+    const toast = useToast();
+    toast.add({
+      title: "Access denied (403)",
+      description: "Your account is not allowed to sign in.",
+      color: "error",
+    });
+
+    navigateTo(route.path, { replace: true });
+  }
+});
+
 useHead({
   title: "Money Manager",
 });
@@ -24,7 +38,7 @@ useHead({
       class="surface-panel rounded-3xl px-6 py-6"
     >
       <template #headline>
-        <UBadge color="cyan" variant="subtle">Overview</UBadge>
+        <UBadge color="primary" variant="subtle">Overview</UBadge>
       </template>
     </UPageHeader>
 
@@ -40,7 +54,7 @@ useHead({
     />
     <UAlert
       v-if="errorMessage"
-      color="rose"
+      color="error"
       variant="subtle"
       class="glass-card"
       title="Something went wrong"

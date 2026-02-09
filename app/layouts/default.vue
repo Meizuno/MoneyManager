@@ -4,10 +4,12 @@ const navLinks = [
   { label: "Import", to: "/import" },
   { label: "Transactions", to: "/transactions" },
 ];
+
+const { loggedIn, user, logout } = useAuth();
 </script>
 
 <template>
-  <div class="min-h-screen bg-[var(--surface)] text-[var(--ink)]">
+  <div class="min-h-screen bg-surface text-ink">
     <header class="sticky top-0 z-40 border-b border-white/5 bg-black/40 backdrop-blur">
       <UContainer class="flex flex-col gap-4 py-6 md:flex-row md:items-center md:justify-between">
         <div class="flex items-center gap-3">
@@ -23,7 +25,7 @@ const navLinks = [
             </h1>
           </div>
         </div>
-        <nav class="flex flex-wrap gap-2 text-sm font-semibold text-slate-200">
+        <nav class="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-200">
           <NuxtLink
             v-for="link in navLinks"
             :key="link.to"
@@ -33,10 +35,27 @@ const navLinks = [
           >
             {{ link.label }}
           </NuxtLink>
+          <div class="h-6 w-px bg-white/10"></div>
+          <UButton
+            v-if="!loggedIn"
+            href="/api/auth/google"
+            external
+            color="primary"
+            variant="solid"
+            size="sm"
+          >
+            Sign in with Google
+          </UButton>
+          <div v-else class="flex items-center gap-2">
+            <span class="text-xs text-slate-300">{{ user?.email ?? "Signed in" }}</span>
+            <UButton color="neutral" variant="outline" size="sm" @click="logout">
+              Log out
+            </UButton>
+          </div>
         </nav>
       </UContainer>
     </header>
-    <div class="border-b border-amber-400/20 bg-amber-400/10">
+    <div v-if="!loggedIn" class="border-b border-amber-400/20 bg-amber-400/10">
       <UContainer class="py-2">
         <div class="flex items-center gap-2 text-xs text-amber-200">
           <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>

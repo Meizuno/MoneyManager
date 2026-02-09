@@ -14,4 +14,11 @@ export default defineNuxtConfig({
 
   modules: ["nitro-cloudflare-dev", "@nuxt/ui", "nuxt-auth-utils"],
   css: ["~/assets/css/main.css"],
+  runtimeConfig: {
+    auth: {
+      jwtSecret: "",
+      accessTokenTTL: "900",
+      refreshTokenTTL: "2592000",
+    },
+  },
 });

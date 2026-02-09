@@ -24,7 +24,7 @@ const submitImport = () => {
   <UCard class="glass-card">
     <div class="flex items-center justify-between gap-3">
       <h2 class="text-xl font-semibold text-white">Import CSV</h2>
-      <UBadge color="cyan" variant="subtle">Bank export</UBadge>
+      <UBadge color="primary" variant="subtle">Bank export</UBadge>
     </div>
     <div class="mt-6 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
       <UFormField label="CSV file">
@@ -37,7 +37,7 @@ const submitImport = () => {
         <UFormField label="Default type">
           <UInput v-model="csvDefaultType" placeholder="other" />
         </UFormField>
-        <UButton color="cyan" variant="solid" @click="submitImport">
+        <UButton color="primary" variant="solid" @click="submitImport">
           Import transactions
         </UButton>
       </div>

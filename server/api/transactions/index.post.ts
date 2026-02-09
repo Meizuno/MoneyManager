@@ -1,8 +1,10 @@
 import { readBody } from "h3";
 import { getDb } from "../../utils/db";
+import { requireAuthUser } from "../../utils/auth";
 import { normalizeTransactionInput } from "../../utils/transactions";
 
 export default defineEventHandler(async (event) => {
+  await requireAuthUser(event);
   const body = await readBody(event);
   const input = normalizeTransactionInput(body ?? {});
   const db = getDb(event);
