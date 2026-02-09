@@ -1,6 +1,12 @@
 import type { CsvRow, CsvTransactionRow } from "~/types/csv";
 
-const normalize = (value: string) => value.trim().toLowerCase();
+const normalize = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
 
 export const parseCsv = (input: string): CsvRow[] => {
   const rows: CsvRow[] = [];
@@ -99,11 +105,15 @@ const headerMatchers = [
 const matchHeader = (header: string) => {
   const value = normalize(header);
   for (const matcher of headerMatchers) {
-    const exactIndex = matcher.names.findIndex((name) => value === name);
+    const exactIndex = matcher.names.findIndex(
+      (name) => value === normalize(name),
+    );
     if (exactIndex !== -1) {
       return { key: matcher.key, priority: matcher.names.length - exactIndex };
     }
-    const includesIndex = matcher.names.findIndex((name) => value.includes(name));
+    const includesIndex = matcher.names.findIndex((name) =>
+      value.includes(normalize(name)),
+    );
     if (includesIndex !== -1) {
       return {
         key: matcher.key,
@@ -116,11 +126,17 @@ const matchHeader = (header: string) => {
 
 export const mapCsvRows = (rows: CsvRow[]) => {
   if (rows.length === 0) {
-    return { mapped: [], skipped: rows.length };
+    return { mapped: [], skipped: rows.length, skippedRows: [] as CsvRow[] };
   }
 
   const headers = rows[0].map(matchHeader);
   const mapped: CsvTransactionRow[] = [];
+  const skippedRows: Array<{
+    rowIndex: number;
+    row: CsvRow;
+    rowText: string;
+    reason: string;
+  }> = [];
 
   for (let i = 1; i < rows.length; i += 1) {
     const row = rows[i];
@@ -145,9 +161,32 @@ export const mapCsvRows = (rows: CsvRow[]) => {
       }
     }
 
-    const amount = parseAmount(rowData.amount, rowData.debit, rowData.credit);
-    const parsedDate = rowData.date ? parseDateToISO(rowData.date) : null;
+    let amount = parseAmount(rowData.amount, rowData.debit, rowData.credit);
+    let parsedDate = rowData.date ? parseDateToISO(rowData.date) : null;
+    if ((!parsedDate || amount === null) && row.length > 6) {
+      const fallbackDate = parseDateToISO(row[0] ?? "");
+      const fallbackAmount = parseAmount(row[row.length - 4] ?? "");
+      if (fallbackDate && fallbackAmount !== null) {
+        parsedDate = fallbackDate;
+        amount = fallbackAmount;
+        rowData.name = row.slice(1, row.length - 4).join(",").trim();
+        rowData.currency = row[row.length - 3] ?? "";
+        rowData.type = row[row.length - 2] ?? "";
+        rowData.category = row[row.length - 1] ?? "";
+      }
+    }
     if (!parsedDate || amount === null) {
+      const reason = !parsedDate && amount === null
+        ? "invalid date and amount"
+        : !parsedDate
+          ? "invalid date"
+          : "invalid amount";
+      skippedRows.push({
+        rowIndex: i + 1,
+        row,
+        rowText: row.join(","),
+        reason,
+      });
       continue;
     }
 
@@ -161,12 +200,19 @@ export const mapCsvRows = (rows: CsvRow[]) => {
     });
   }
 
-  return { mapped, skipped: rows.length - 1 - mapped.length };
+  return { mapped, skipped: rows.length - 1 - mapped.length, skippedRows };
 };
 
 const parseDateToISO = (value: string) => {
   const raw = value.trim();
   if (!raw) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
 
   const isoMatch = raw.match(
     /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,

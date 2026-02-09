@@ -1,7 +1,6 @@
 type ImportPayload = {
   file: File;
-  defaultCategory: string;
-  defaultType: string;
+  format?: "csv" | "json";
 };
 
 type ImportResult = {
@@ -282,8 +281,9 @@ export const useTransactions = () => {
     resetMessages();
     const formData = new FormData();
     formData.append("file", payload.file);
-    formData.append("defaultCategory", payload.defaultCategory || "other");
-    formData.append("defaultType", payload.defaultType || "other");
+    if (payload.format) {
+      formData.append("format", payload.format);
+    }
 
     try {
       const result = await apiFetch<ImportResult>("/api/transactions/import", {

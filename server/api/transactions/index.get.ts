@@ -1,7 +1,4 @@
 import { getQuery } from "h3";
-import { getPrisma } from "../../utils/db";
-import { getAuthUser } from "../../utils/auth";
-import { expandTransactionTypeFilter } from "../../utils/transactions";
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthUser(event);
@@ -25,8 +22,6 @@ export default defineEventHandler(async (event) => {
   };
   const dateFromParsed = parseDate(dateFrom, false);
   const dateToParsed = parseDate(dateTo, true);
-  const normalizedType = type.trim().toLowerCase();
-  const typeFilters = expandTransactionTypeFilter(normalizedType);
   const result = await prisma.transaction.findMany({
     where: {
       user_id: user.id,
@@ -37,17 +32,7 @@ export default defineEventHandler(async (event) => {
           ...(dateToParsed ? { lte: dateToParsed } : {}),
         },
       }),
-      ...(normalizedType === "income"
-        ? { amount: { gte: 0 } }
-        : normalizedType === "expense"
-          ? { amount: { lt: 0 } }
-          : typeFilters.length > 0
-            ? {
-                OR: typeFilters.map((value) => ({
-                  type: { equals: value, mode: "insensitive" },
-                })),
-              }
-            : {}),
+      type: type
     },
     orderBy: [{ date: "desc" }, { id: "desc" }],
   });

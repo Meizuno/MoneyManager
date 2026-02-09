@@ -1,24 +1,23 @@
 <script setup lang="ts">
 const { errorMessage, statusMessage, importCsv } = useTransactions();
 
-const handleImport = async (payload: { file: File }) => {
+const handleImport = async (payload: { file: File; format: "csv" | "json" }) => {
   await importCsv({
     file: payload.file,
-    defaultCategory: "other",
-    defaultType: "other",
+    format: payload.format,
   });
 };
 
 useHead({
-  title: "Import CSV",
+  title: "Import data",
 });
 </script>
 
 <template>
   <div class="flex flex-col gap-6">
     <UPageHeader
-      title="Bring in your bank CSV"
-      description="Import your latest transactions in minutes."
+      title="Bring in your CSV or JSON"
+      description="Import normalized transactions in seconds."
       class="surface-panel rounded-3xl px-6 py-6"
     >
       <template #headline>
@@ -31,7 +30,7 @@ useHead({
       <UCard class="surface-panel">
         <h3 class="text-lg font-semibold text-white">How it works</h3>
         <ol class="mt-4 space-y-3 text-sm text-slate-300">
-          <li>1. Export a CSV from your bank or card provider.</li>
+          <li>1. Export CSV or build JSON with the transaction fields.</li>
           <li>2. Upload it here and we’ll fill missing type/category as “other”.</li>
           <li>3. Review and edit any entries on the Transactions page.</li>
         </ol>

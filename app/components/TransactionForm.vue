@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
 import { parseDate } from "@internationalized/date";
 import type { TransactionInput } from "~/types/transaction";
 
