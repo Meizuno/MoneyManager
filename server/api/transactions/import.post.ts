@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
   await prisma.transaction.createMany({
     data: mapped.map((row) => ({
       date: new Date(row.date),
-      description: row.description,
+      name: row.name,
       amount: row.amount,
       currency: row.currency,
       type: row.type ?? "other",

@@ -2,7 +2,7 @@ export type CsvRow = string[];
 
 export type CsvTransactionRow = {
   date: string;
-  description: string;
+  name: string;
   amount: number;
   currency: string | null;
   type: string | null;

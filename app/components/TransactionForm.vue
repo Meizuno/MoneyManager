@@ -15,7 +15,7 @@ const emit = defineEmits<{
 const getToday = () => new Date().toISOString().slice(0, 10);
 const form = ref({
   date: getToday(),
-  description: "",
+  name: "",
   amount: null as number | null,
   currency: "",
   type: "other",
@@ -23,7 +23,7 @@ const form = ref({
 });
 const formDateOpen = ref(false);
 const isValid = computed(
-  () => Boolean(form.value.date) && Boolean(form.value.description) && form.value.amount !== null,
+  () => Boolean(form.value.date) && Boolean(form.value.name) && form.value.amount !== null,
 );
 const safeParseDate = (value: string) => {
   try {
@@ -41,7 +41,7 @@ const formDateValue = computed({
 const clearForm = () => {
   form.value = {
     date: getToday(),
-    description: "",
+    name: "",
     amount: null,
     currency: "",
     type: props.typeOptions[0] ?? "other",
@@ -53,7 +53,7 @@ const submitForm = () => {
   if (!isValid.value) return;
   emit("submit", {
     date: form.value.date,
-    description: form.value.description,
+    name: form.value.name,
     amount: form.value.amount ?? "",
     currency: form.value.currency,
     type: form.value.type || "other",
@@ -96,8 +96,8 @@ const submitForm = () => {
             </template>
           </UPopover>
         </UFormField>
-        <UFormField label="Description" help="Keep it short so it’s easy to scan.">
-          <UInput v-model="form.description" placeholder="Coffee with team" class="w-full" />
+        <UFormField label="Name" help="Keep it short so it’s easy to scan.">
+          <UInput v-model="form.name" placeholder="Coffee with team" class="w-full" />
         </UFormField>
         <UFormField label="Amount" help="Use negative values for expenses.">
           <UInputNumber
@@ -125,7 +125,7 @@ const submitForm = () => {
           Clear
         </UButton>
         <p class="text-xs text-slate-400">
-          Required: date, description, amount.
+          Required: date, name, amount.
         </p>
       </div>
     </div>

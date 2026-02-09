@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
     items: result.map((item) => ({
       id: item.id,
       date: item.date.toISOString().slice(0, 10),
-      description: item.description,
+      name: item.name,
       amount: Number(item.amount),
       currency: item.currency,
       type: item.type,

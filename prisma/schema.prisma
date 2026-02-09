@@ -10,7 +10,7 @@ datasource db {
 model Transaction {
   id          Int      @id @default(autoincrement())
   date        DateTime @db.Timestamptz(6)
-  description String
+  name        String
   amount      Decimal  @db.Decimal(12, 2)
   currency    String?
   type        String   @default("other")

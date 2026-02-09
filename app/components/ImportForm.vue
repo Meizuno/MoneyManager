@@ -52,7 +52,7 @@ const submitImport = () => {
           color="neutral"
           variant="subtle"
           title="Expected columns"
-          description="date, description, amount, debit/credit, type, category."
+          description="date, name, amount, debit/credit, type, category."
         />
         <UAlert
           color="neutral"

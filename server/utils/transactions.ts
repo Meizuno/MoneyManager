@@ -73,7 +73,7 @@ export const expandTransactionTypeFilter = (value?: string | null) => {
 
 export const normalizeTransactionInput = (input: TransactionInput) => {
   const date = (input.date ?? "").trim();
-  const description = (input.description ?? "").trim();
+  const name = (input.name ?? "").trim();
   const amountRaw = input.amount ?? "";
   const amount =
     typeof amountRaw === "number"
@@ -84,7 +84,7 @@ export const normalizeTransactionInput = (input: TransactionInput) => {
             .replace(",", "."),
         );
 
-  if (!date || !description || !Number.isFinite(amount)) {
+  if (!date || !name || !Number.isFinite(amount)) {
     throw createError({
       statusCode: 400,
       statusMessage: "Invalid transaction payload.",
@@ -98,7 +98,7 @@ export const normalizeTransactionInput = (input: TransactionInput) => {
 
   return {
     date,
-    description,
+    name,
     amount,
     currency,
     type: normalizeTransactionType(input.type),

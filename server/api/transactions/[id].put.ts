@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     where: { id: Number(id) },
     data: {
       date: new Date(input.date),
-      description: input.description,
+      name: input.name,
       amount: input.amount,
       currency: input.currency,
       type: input.type,
@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
     item: {
       id: updated.id,
       date: updated.date.toISOString().slice(0, 10),
-      description: updated.description,
+      name: updated.name,
       amount: Number(updated.amount),
       currency: updated.currency,
       type: updated.type,

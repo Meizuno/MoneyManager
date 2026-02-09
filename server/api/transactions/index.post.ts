@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const inserted = await prisma.transaction.create({
     data: {
       date: new Date(input.date),
-      description: input.description,
+      name: input.name,
       amount: input.amount,
       currency: input.currency,
       type: input.type,
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     item: {
       id: inserted.id,
       date: inserted.date.toISOString().slice(0, 10),
-      description: inserted.description,
+      name: inserted.name,
       amount: Number(inserted.amount),
       currency: inserted.currency,
       type: inserted.type,

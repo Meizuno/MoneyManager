@@ -33,7 +33,7 @@ const editDateOpen = ref(false);
 const rangeDateOpen = ref(false);
 const editItem = ref({
   date: "",
-  description: "",
+  name: "",
   amount: null as number | null,
   currency: "",
   type: "other",
@@ -77,7 +77,7 @@ const startEdit = (item: Transaction) => {
   editingId.value = item.id;
   editItem.value = {
     date: item.date,
-    description: item.description,
+    name: item.name,
     amount: item.amount,
     currency: item.currency ?? "",
     type: item.type ?? "other",
@@ -94,7 +94,7 @@ const submitEdit = (id: number) => {
     id,
     input: {
       date: editItem.value.date,
-      description: editItem.value.description,
+      name: editItem.value.name,
       amount: editItem.value.amount ?? "",
       currency: editItem.value.currency,
       type: editItem.value.type || "other",
@@ -210,8 +210,8 @@ const submitEdit = (id: number) => {
                 </template>
               </UPopover>
             </UFormField>
-            <UFormField label="Description">
-              <UInput v-model="editItem.description" />
+            <UFormField label="Name">
+              <UInput v-model="editItem.name" />
             </UFormField>
             <UFormField label="Amount">
               <UInputNumber v-model="editItem.amount" :step="0.01" />
@@ -242,7 +242,7 @@ const submitEdit = (id: number) => {
                 {{ item.date }}
               </p>
               <p class="mt-1 text-sm font-semibold text-white">
-                {{ item.description }}
+                {{ item.name }}
               </p>
               <div class="mt-2 flex flex-wrap gap-2">
                 <UBadge variant="subtle" color="primary">

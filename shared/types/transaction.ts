@@ -1,7 +1,7 @@
 export type Transaction = {
   id: number;
   date: string;
-  description: string;
+  name: string;
   amount: number;
   currency: string | null;
   type: string;
@@ -11,7 +11,7 @@ export type Transaction = {
 
 export type TransactionInput = {
   date: string;
-  description: string;
+  name: string;
   amount: number | string;
   currency?: string | null;
   type?: string | null;

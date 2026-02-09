@@ -64,9 +64,10 @@ const headerMatchers = [
     ],
   },
   {
-    key: "description",
+    key: "name",
     names: [
       "description",
+      "name",
       "název obchodníka",
       "poznámka",
       "vlastní poznámka",
@@ -152,7 +153,7 @@ export const mapCsvRows = (rows: CsvRow[]) => {
 
     mapped.push({
       date: parsedDate,
-      description: rowData.description?.trim() || "Transaction",
+      name: rowData.name?.trim() || "Transaction",
       amount,
       currency: rowData.currency ? rowData.currency.trim() : null,
       type: rowData.type ? rowData.type.trim() : null,

@@ -2,7 +2,7 @@
 CREATE TABLE "transactions" (
     "id" SERIAL NOT NULL,
     "date" TIMESTAMPTZ(6) NOT NULL,
-    "description" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
     "amount" DECIMAL(12,2) NOT NULL,
     "currency" TEXT,
     "type" TEXT NOT NULL DEFAULT 'other',
