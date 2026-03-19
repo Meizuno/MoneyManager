@@ -1,8 +1,8 @@
 <script setup lang="ts">
 const navLinks = [
   { label: "Overview", to: "/" },
-  { label: "Import", to: "/import" },
   { label: "Transactions", to: "/transactions" },
+  { label: "Sales Split", to: "/sales-split" },
 ];
 
 const { loggedIn, user, logout } = useAuth();

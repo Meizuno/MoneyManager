@@ -1,18 +1,5 @@
-type ImportPayload = {
-  file: File;
-  format?: "csv" | "json";
-};
-
-type ImportResult = {
-  imported: number;
-  skipped: number;
-  persisted?: boolean;
-  items?: Transaction[];
-};
-
 export const useTransactions = () => {
   const transactions = useState<Transaction[]>("transactions", () => []);
-  const localTransactions = useState<Transaction[]>("transactions_local", () => []);
   const loading = useState<boolean>("transactions_loading", () => false);
   const errorMessage = useState<string>("transactions_error", () => "");
   const statusMessage = useState<string>("transactions_status", () => "");
@@ -21,7 +8,6 @@ export const useTransactions = () => {
   const filterDateFrom = useState<string>("transactions_filter_date_from", () => "");
   const filterDateTo = useState<string>("transactions_filter_date_to", () => "");
   const filterDatePreset = useState<string>("transactions_filter_date_preset", () => "all");
-  const localOnly = useState<boolean>("transactions_local_only", () => false);
 
   const typeOptions = [
     "other",
@@ -50,8 +36,7 @@ export const useTransactions = () => {
 
   const categories = computed(() => {
     const set = new Set<string>(["other"]);
-    const source = localOnly.value ? localTransactions.value : transactions.value;
-    source.forEach((item) => {
+    transactions.value.forEach((item) => {
       if (item.category) set.add(item.category);
     });
     const list = Array.from(set).sort((a, b) => a.localeCompare(b));
@@ -177,34 +162,7 @@ export const useTransactions = () => {
     { immediate: true },
   );
 
-  const applyLocalFilters = (items: Transaction[]) => {
-    return items.filter((item) => {
-      const matchesCategory =
-        filterCategory.value === "all" || item.category === filterCategory.value;
-      const normalizedType = normalizedFilterType.value;
-      let matchesType = true;
-      if (normalizedType === "income") {
-        matchesType = (item.amount ?? 0) >= 0;
-      } else if (normalizedType === "expense") {
-        matchesType = (item.amount ?? 0) < 0;
-      } else if (normalizedType !== "all") {
-        const itemType = normalizeTypeFilter(item.type ?? "other");
-        matchesType = itemType === normalizedType;
-      }
-      const date = item.date;
-      const matchesDateFrom =
-        !filterDateFrom.value || date >= filterDateFrom.value;
-      const matchesDateTo =
-        !filterDateTo.value || date <= filterDateTo.value;
-      return matchesCategory && matchesType && matchesDateFrom && matchesDateTo;
-    });
-  };
-
   const loadTransactions = async (opts?: { force?: boolean; preserveStatus?: boolean }) => {
-    if (localOnly.value) {
-      transactions.value = applyLocalFilters(localTransactions.value);
-      return;
-    }
     if (!opts?.force && transactions.value.length > 0) {
       return;
     }
@@ -224,7 +182,6 @@ export const useTransactions = () => {
         },
       });
       transactions.value = data.items ?? [];
-      localOnly.value = false;
     } catch (error) {
       errorMessage.value = "Unable to load transactions.";
     } finally {
@@ -277,36 +234,6 @@ export const useTransactions = () => {
     }
   };
 
-  const importCsv = async (payload: ImportPayload): Promise<ImportResult | null> => {
-    resetMessages();
-    const formData = new FormData();
-    formData.append("file", payload.file);
-    if (payload.format) {
-      formData.append("format", payload.format);
-    }
-
-    try {
-      const result = await apiFetch<ImportResult>("/api/transactions/import", {
-        method: "POST",
-        body: formData,
-      });
-      const importSummary = `Imported ${result.imported} rows, skipped ${result.skipped}.`;
-      if (result.persisted === false && result.items) {
-        localTransactions.value = result.items;
-        transactions.value = applyLocalFilters(result.items);
-        localOnly.value = true;
-        statusMessage.value = `${importSummary} Not saved to database.`;
-      } else {
-        await loadTransactions({ preserveStatus: true });
-        statusMessage.value = importSummary;
-      }
-      return result;
-    } catch (error) {
-      errorMessage.value = "Import failed.";
-      return null;
-    }
-  };
-
   return {
     transactions,
     loading,
@@ -330,6 +257,5 @@ export const useTransactions = () => {
     createTransaction,
     updateTransaction,
     deleteTransaction,
-    importCsv,
   };
 };

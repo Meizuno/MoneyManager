@@ -4,20 +4,10 @@ Nuxt 4 app with PostgreSQL storage.
 
 ## Setup
 
-Make sure to install dependencies:
+Install dependencies:
 
 ```bash
-# npm
-npm install
-
-# pnpm
 pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
 ```
 
 ## Database (PostgreSQL + Prisma)
@@ -25,19 +15,19 @@ bun install
 Set `DATABASE_URL` (see `.env`) and run Prisma migrations:
 
 ```bash
-yarn prisma:migrate
+pnpm prisma:migrate
 ```
 
 Generate the Prisma client if needed:
 
 ```bash
-yarn prisma:generate
+pnpm prisma:generate
 ```
 
 If you're using Docker Compose, run migrations inside the app container:
 
 ```bash
-docker compose exec app yarn prisma:migrate
+docker compose exec app pnpm prisma:migrate
 ```
 
 ## Development Server
@@ -45,17 +35,7 @@ docker compose exec app yarn prisma:migrate
 Start the development server on `http://localhost:3000`:
 
 ```bash
-# npm
-npm run dev
-
-# pnpm
 pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
 ## Docker
@@ -71,33 +51,13 @@ docker compose up --build
 Build the application for production:
 
 ```bash
-# npm
-npm run build
-
-# pnpm
 pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
 ```
 
 Locally preview production build:
 
 ```bash
-# npm
-npm run preview
-
-# pnpm
 pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
 ```
 
 Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
