@@ -1,9 +1,11 @@
 <script setup lang="ts">
-const navLinks = [
-  { label: "Overview", to: "/" },
-  { label: "Transactions", to: "/transactions" },
-  { label: "Sales Split", to: "/sales-split" },
-];
+const { t, locale, locales, setLocale } = useI18n();
+
+const navLinks = computed(() => [
+  { label: t("nav.overview"), to: "/" },
+  { label: t("nav.transactions"), to: "/transactions" },
+  { label: t("nav.salesSplit"), to: "/sales-split" },
+]);
 
 const { loggedIn, user, logout } = useAuth();
 const authReady = ref(false);
@@ -11,6 +13,20 @@ const authReady = ref(false);
 onMounted(() => {
   authReady.value = true;
 });
+
+const availableLocales = computed(() =>
+  (locales.value as { code: string; flag: string }[])
+);
+
+function cycleLocale() {
+  const codes = availableLocales.value.map((l) => l.code);
+  const next = codes[(codes.indexOf(locale.value) + 1) % codes.length];
+  setLocale(next);
+}
+
+const currentFlag = computed(() =>
+  availableLocales.value.find((l) => l.code === locale.value)?.flag ?? locale.value.toUpperCase()
+);
 </script>
 
 <template>
@@ -26,7 +42,7 @@ onMounted(() => {
               Money Manager
             </p>
             <h1 class="text-2xl font-semibold tracking-tight text-white">
-              Cashflow control
+              {{ $t('header.tagline') }}
             </h1>
           </div>
         </div>
@@ -40,6 +56,13 @@ onMounted(() => {
           >
             {{ link.label }}
           </NuxtLink>
+          <button
+            class="rounded-full border border-white/10 p-1.5 transition hover:border-cyan-400/40"
+            :title="availableLocales.find((l) => l.code === locale)?.name"
+            @click="cycleLocale"
+          >
+            <UIcon :name="currentFlag" class="h-5 w-5" />
+          </button>
           <div class="h-6 w-px bg-white/10"></div>
           <div v-if="!authReady" class="h-8 w-28 rounded-full bg-white/5"></div>
           <UButton
@@ -50,12 +73,12 @@ onMounted(() => {
             variant="solid"
             size="sm"
           >
-            Sign in with Google
+            {{ $t('auth.signIn') }}
           </UButton>
           <div v-else class="flex items-center gap-2">
-            <span class="text-xs text-slate-300">{{ user?.name ?? "Signed in" }}</span>
+            <span class="text-xs text-slate-300">{{ user?.name ?? $t('auth.signedIn') }}</span>
             <UButton color="neutral" variant="outline" size="sm" @click="logout">
-              Log out
+              {{ $t('auth.logOut') }}
             </UButton>
           </div>
         </nav>
@@ -68,8 +91,8 @@ onMounted(() => {
       <UContainer class="py-2">
         <div class="flex items-center gap-2 text-xs text-amber-200">
           <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>
-          <span class="font-semibold">Anonymous mode:</span>
-          <span>Data imported while anonymous is not stored.</span>
+          <span class="font-semibold">{{ $t('auth.anonMode') }}:</span>
+          <span>{{ $t('auth.anonDesc') }}</span>
         </div>
       </UContainer>
     </div>

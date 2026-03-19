@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { parseDate } from "@internationalized/date";
 
+interface SelectItem { label: string; value: string; icon?: string }
+
 const props = defineProps<{
   transactions: Transaction[];
-  typeOptions: string[];
-  categoryOptions: string[];
+  typeOptions: SelectItem[];
+  getCategoryOptions: (type: string) => SelectItem[];
   formatAmount: (amount: number, currency?: string | null) => string;
   filterCategory: string;
-  categories: string[];
+  categories: SelectItem[];
   filterType: string;
-  types: string[];
+  types: SelectItem[];
   filterDateFrom: string;
   filterDateTo: string;
   filterDatePreset: string;
-  datePresetOptions: { label: string; value: string }[];
+  datePresetOptions: SelectItem[];
 }>();
 
 const emit = defineEmits<{
@@ -35,11 +37,23 @@ const editItem = ref({
   name: "",
   amount: null as number | null,
   currency: "",
-  type: "other",
-  category: "other",
+  type: "expense",
+  category: "",
+});
+
+const editCategoryOptions = computed(() => props.getCategoryOptions(editItem.value.type));
+
+watch(() => editItem.value.type, (type) => {
+  const opts = props.getCategoryOptions(type);
+  if (!opts.some((o) => o.value === editItem.value.category)) {
+    editItem.value.category = opts[0]?.value ?? "";
+  }
 });
 const totalAmount = computed(() =>
-  props.transactions.reduce((sum, item) => sum + (item.amount ?? 0), 0),
+  props.transactions.reduce((sum, item) => {
+    const abs = Math.abs(item.amount ?? 0);
+    return sum + (item.type === "income" ? abs : -abs);
+  }, 0),
 );
 const hasTransactions = computed(() => props.transactions.length > 0);
 const safeParseDate = (value: string) => {
@@ -84,6 +98,12 @@ const startEdit = (item: Transaction) => {
   };
 };
 
+const formatDate = (iso: string) => {
+  if (!iso) return iso;
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+};
+
 const cancelEdit = () => {
   editingId.value = null;
 };
@@ -108,16 +128,14 @@ const submitEdit = (id: number) => {
   <UCard class="glass-card">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 class="text-xl font-semibold text-white">Transactions</h2>
-        <p class="mt-1 text-sm text-slate-300">
-          Review, edit, or clean up entries from imports and manual adds.
-        </p>
+        <h2 class="text-xl font-semibold text-white">{{ $t('transactions.listTitle') }}</h2>
+        <p class="mt-1 text-sm text-slate-300">{{ $t('transactions.listDesc') }}</p>
       </div>
       <div class="rounded-2xl bg-white/5 px-4 py-2 text-right">
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Net total</p>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">{{ $t('transactions.netTotal') }}</p>
         <p
           class="text-lg font-semibold"
-          :class="totalAmount >= 0 ? 'text-emerald-600' : 'text-rose-600'"
+          :class="totalAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'"
         >
           {{ formatAmount(totalAmount) }}
         </p>
@@ -126,26 +144,28 @@ const submitEdit = (id: number) => {
     <div class="mt-4 flex flex-wrap items-end justify-between gap-4">
       <div class="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-3">
         <UFormField
-          label="Filter by category"
-          help="Narrow the list to a single spending category."
+          :label="$t('transactions.filterCategory')"
+          :help="$t('transactions.filterCategoryHelp')"
           class="w-full"
         >
           <USelect
             :model-value="filterCategory"
             :items="categories"
+            :leading-icon="categories.find(o => o.value === filterCategory)?.icon"
             class="w-full"
             @update:model-value="emit('update:filterCategory', $event as string)"
           />
         </UFormField>
-        <UFormField label="Filter by type" help="Show only a single transaction type.">
+        <UFormField :label="$t('transactions.filterType')" :help="$t('transactions.filterTypeHelp')">
           <USelect
             :model-value="filterType"
             :items="types"
+            :leading-icon="types.find(o => o.value === filterType)?.icon"
             class="w-full"
             @update:model-value="emit('update:filterType', $event as string)"
           />
         </UFormField>
-        <UFormField label="Date preset" help="Quickly scope a common range.">
+        <UFormField :label="$t('transactions.datePreset')" :help="$t('transactions.datePresetHelp')">
           <USelect
             :model-value="filterDatePreset"
             :items="datePresetOptions"
@@ -154,10 +174,10 @@ const submitEdit = (id: number) => {
           />
         </UFormField>
         <div v-if="filterDatePreset === 'custom'" class="md:col-span-2 xl:col-span-4">
-          <UFormField label="Date range">
+          <UFormField :label="$t('transactions.dateRange')">
             <UPopover v-model:open="rangeDateOpen" :content="{ side: 'bottom', sideOffset: 8 }">
               <template #anchor>
-                <UInputDate v-model="dateRangeValue" range class="w-full">
+                <UInputDate v-model="dateRangeValue" range locale="cs" class="w-full">
                   <template #trailing>
                     <UButton
                       icon="i-heroicons-calendar-days"
@@ -177,7 +197,7 @@ const submitEdit = (id: number) => {
         </div>
       </div>
       <div class="text-sm text-slate-400">
-        {{ transactions.length }} entries shown
+        {{ transactions.length }} {{ $t('transactions.shown') }}
       </div>
     </div>
     <div class="mt-4 space-y-3">
@@ -189,10 +209,10 @@ const submitEdit = (id: number) => {
       >
         <template v-if="editingId === item.id">
           <div class="grid gap-3 md:grid-cols-2">
-            <UFormField label="Date">
+            <UFormField :label="$t('form.date')">
               <UPopover v-model:open="editDateOpen" :content="{ side: 'bottom', sideOffset: 8 }">
                 <template #anchor>
-                  <UInputDate v-model="editDateValue">
+                  <UInputDate v-model="editDateValue" locale="cs">
                     <template #trailing>
                       <UButton
                         icon="i-heroicons-calendar-days"
@@ -209,28 +229,36 @@ const submitEdit = (id: number) => {
                 </template>
               </UPopover>
             </UFormField>
-            <UFormField label="Name">
+            <UFormField :label="$t('form.name')">
               <UInput v-model="editItem.name" />
             </UFormField>
-            <UFormField label="Amount">
+            <UFormField :label="$t('form.amount')">
               <UInputNumber v-model="editItem.amount" :step="0.01" />
             </UFormField>
-            <UFormField label="Currency">
+            <UFormField :label="$t('form.currency')">
               <UInput v-model="editItem.currency" />
             </UFormField>
-            <UFormField label="Type">
-              <USelect v-model="editItem.type" :items="typeOptions" />
+            <UFormField :label="$t('form.type')">
+              <USelect
+                v-model="editItem.type"
+                :items="typeOptions"
+                :leading-icon="typeOptions.find(o => o.value === editItem.type)?.icon"
+              />
             </UFormField>
-            <UFormField label="Spending category">
-              <USelect v-model="editItem.category" :items="categoryOptions" />
+            <UFormField :label="$t('form.category')">
+              <USelect
+                v-model="editItem.category"
+                :items="editCategoryOptions"
+                :leading-icon="editCategoryOptions.find(o => o.value === editItem.category)?.icon"
+              />
             </UFormField>
           </div>
           <div class="mt-3 flex gap-2">
             <UButton color="primary" variant="solid" @click="submitEdit(item.id)">
-              Save changes
+              {{ $t('transactions.saveChanges') }}
             </UButton>
             <UButton variant="outline" color="neutral" @click="cancelEdit">
-              Cancel
+              {{ $t('common.cancel') }}
             </UButton>
           </div>
         </template>
@@ -238,7 +266,7 @@ const submitEdit = (id: number) => {
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                {{ item.date }}
+                {{ formatDate(item.date) }}
               </p>
               <p class="mt-1 text-sm font-semibold text-white">
                 {{ item.name }}
@@ -255,13 +283,13 @@ const submitEdit = (id: number) => {
             <div class="text-right">
               <p
                 class="text-lg font-semibold"
-                :class="item.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'"
+                :class="item.type === 'income' ? 'text-emerald-400' : 'text-rose-400'"
               >
-                {{ formatAmount(item.amount, item.currency) }}
+                {{ item.type === 'income' ? '' : '-' }}{{ formatAmount(Math.abs(item.amount), item.currency) }}
               </p>
               <div class="mt-2 flex items-center justify-end gap-2">
                 <UButton size="sm" variant="outline" color="neutral" @click="startEdit(item)">
-                  Edit
+                  {{ $t('common.edit') }}
                 </UButton>
                 <UButton
                   size="sm"
@@ -269,7 +297,7 @@ const submitEdit = (id: number) => {
                   variant="subtle"
                   @click="emit('delete', item.id)"
                 >
-                  Delete
+                  {{ $t('common.delete') }}
                 </UButton>
               </div>
             </div>
@@ -279,17 +307,15 @@ const submitEdit = (id: number) => {
       <UCard v-else class="surface-panel border border-dashed border-white/10">
         <div class="flex flex-col items-start gap-3">
           <div>
-            <p class="text-sm font-semibold text-white">No transactions yet</p>
-            <p class="mt-1 text-sm text-slate-400">
-              Import a CSV for bulk entries or add a manual transaction.
-            </p>
+            <p class="text-sm font-semibold text-white">{{ $t('transactions.emptyTitle') }}</p>
+            <p class="mt-1 text-sm text-slate-400">{{ $t('transactions.emptyDesc') }}</p>
           </div>
           <div class="flex flex-wrap gap-2">
             <UButton color="primary" variant="solid" to="/import">
-              Import CSV
+              {{ $t('transactions.importCsv') }}
             </UButton>
             <UButton variant="outline" color="neutral" @click="$emit('focus-form')">
-              Add manually
+              {{ $t('transactions.addManually') }}
             </UButton>
           </div>
         </div>

@@ -18,8 +18,18 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ["@nuxt/ui", "nuxt-auth-utils"],
+  modules: ["@nuxt/ui", "nuxt-auth-utils", "@nuxtjs/i18n"],
   css: ["~/assets/css/main.css"],
+
+  i18n: {
+    defaultLocale: "uk",
+    locales: [
+      { code: "uk", language: "uk-UA", name: "Українська", flag: "i-circle-flags-ua", file: "uk.json" },
+      { code: "en", language: "en-US", name: "English", flag: "i-circle-flags-gb", file: "en.json" },
+    ],
+    langDir: "locales",
+    strategy: "no_prefix",
+  },
   runtimeConfig: {
     auth: {
       jwtSecret: "",

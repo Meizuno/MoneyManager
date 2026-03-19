@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n();
 const {
   loading,
   errorMessage,
@@ -16,8 +17,8 @@ onMounted(() => {
   if (route.query.auth === "forbidden") {
     const toast = useToast();
     toast.add({
-      title: "Access denied (403)",
-      description: "Your account is not allowed to sign in.",
+      title: t("auth.forbidden"),
+      description: t("auth.forbiddenDesc"),
       color: "error",
     });
 
@@ -25,20 +26,18 @@ onMounted(() => {
   }
 });
 
-useHead({
-  title: "Money Manager",
-});
+useHead({ title: t("overview.pageTitle") });
 </script>
 
 <template>
   <div class="flex flex-col gap-10">
     <UPageHeader
-      title="Personal cash flow studio"
-      description="Track how money moves across spending categories and transaction types."
+      :title="$t('overview.title')"
+      :description="$t('overview.description')"
       class="surface-panel rounded-3xl px-6 py-6"
     >
       <template #headline>
-        <UBadge color="primary" variant="subtle">Overview</UBadge>
+        <UBadge color="primary" variant="subtle">{{ $t('nav.overview') }}</UBadge>
       </template>
     </UPageHeader>
 
@@ -49,15 +48,15 @@ useHead({
       color="neutral"
       variant="subtle"
       class="glass-card"
-      title="Loading data"
-      description="Fetching your latest transactions."
+      :title="$t('overview.loadingTitle')"
+      :description="$t('overview.loadingDesc')"
     />
     <UAlert
       v-if="errorMessage"
       color="error"
       variant="subtle"
       class="glass-card"
-      title="Something went wrong"
+      :title="$t('overview.errorTitle')"
       :description="errorMessage"
     />
 

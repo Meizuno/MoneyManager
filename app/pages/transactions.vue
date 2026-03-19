@@ -15,7 +15,7 @@ const {
   types,
   datePresetOptions,
   typeOptions,
-  categoryOptions,
+  getCategoryOptions,
   formatAmount,
   loadTransactions,
   createTransaction,
@@ -46,20 +46,19 @@ const focusForm = () => {
   formRef.value?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
-useHead({
-  title: "Transactions",
-});
+const { t } = useI18n();
+useHead({ title: t("transactions.pageTitle") });
 </script>
 
 <template>
   <div class="flex flex-col gap-8">
     <UPageHeader
-      title="Manage entries"
-      description="Add manual entries, tidy imports, and keep your ledger accurate."
+      :title="$t('transactions.title')"
+      :description="$t('transactions.description')"
       class="surface-panel rounded-3xl px-6 py-6"
     >
       <template #headline>
-        <UBadge color="primary" variant="subtle">Transactions</UBadge>
+        <UBadge color="primary" variant="subtle">{{ $t('nav.transactions') }}</UBadge>
       </template>
     </UPageHeader>
 
@@ -68,15 +67,15 @@ useHead({
       color="neutral"
       variant="subtle"
       class="glass-card"
-      title="Loading transactions"
-      description="Syncing your latest entries."
+      :title="$t('transactions.loadingTitle')"
+      :description="$t('transactions.loadingDesc')"
     />
     <UAlert
       v-if="errorMessage"
       color="error"
       variant="subtle"
       class="glass-card"
-      title="Action failed"
+      :title="$t('transactions.errorTitle')"
       :description="errorMessage"
     />
     <UAlert
@@ -84,7 +83,7 @@ useHead({
       color="success"
       variant="subtle"
       class="glass-card"
-      title="Update complete"
+      :title="$t('transactions.successTitle')"
       :description="statusMessage"
     />
 
@@ -92,14 +91,14 @@ useHead({
       <div ref="formRef">
         <TransactionForm
           :type-options="typeOptions"
-          :category-options="categoryOptions"
+          :get-category-options="getCategoryOptions"
           @submit="handleCreate"
         />
       </div>
       <TransactionList
         :transactions="transactions"
         :type-options="typeOptions"
-        :category-options="categoryOptions"
+        :get-category-options="getCategoryOptions"
         :categories="categories"
         :types="types"
         :date-preset-options="datePresetOptions"

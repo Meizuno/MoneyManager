@@ -8,7 +8,7 @@ defineProps<{
 
 <template>
   <UCard class="glass-card">
-    <h2 class="text-xl font-semibold text-white">Spending categories</h2>
+    <h2 class="text-xl font-semibold text-white">{{ $t('categories.title') }}</h2>
     <div class="mt-6 space-y-4">
       <div v-for="item in categoryTotals" :key="item.category">
         <div class="flex items-center justify-between text-xs font-semibold">
@@ -32,7 +32,7 @@ defineProps<{
         </div>
       </div>
       <p v-if="categoryTotals.length === 0" class="text-sm text-slate-400">
-        Category insights will appear after importing data.
+        {{ $t('categories.empty') }}
       </p>
     </div>
   </UCard>

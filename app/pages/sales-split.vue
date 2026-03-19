@@ -1,5 +1,6 @@
 <script setup lang="ts">
-useHead({ title: "Sales Split — Money Manager" });
+const { t } = useI18n();
+useHead({ title: t("salesSplit.pageTitle") });
 
 const { totals, formatAmount, loadTransactions } = useTransactions();
 const { loggedIn, apiFetch } = useAuth();
@@ -37,8 +38,8 @@ const splits = ref<Split[]>([]);
 function defaultSplits(): Split[] {
   nextId.value = 3;
   return [
-    { id: 1, label: "Taxes", percent: 25, color: COLORS[2] },
-    { id: 2, label: "Savings", percent: 20, color: COLORS[0] },
+    { id: 1, label: t("salesSplit.defaultTaxes"), percent: 25, color: COLORS[2] },
+    { id: 2, label: t("salesSplit.defaultSavings"), percent: 20, color: COLORS[0] },
   ];
 }
 
@@ -95,7 +96,7 @@ function addSplit() {
   const colorIndex = splits.value.length % COLORS.length;
   splits.value.push({
     id: nextId.value++,
-    label: "New rule",
+    label: t("salesSplit.newRule"),
     percent: 10,
     color: COLORS[colorIndex],
   });
@@ -137,12 +138,12 @@ function barColor(index: number) {
 <template>
   <div class="flex flex-col gap-10">
     <UPageHeader
-      title="Sales split"
-      description="Define what percentage of your income you want to keep for taxes, savings, or any other purpose."
+      :title="$t('salesSplit.title')"
+      :description="$t('salesSplit.description')"
       class="surface-panel rounded-3xl px-6 py-6"
     >
       <template #headline>
-        <UBadge color="primary" variant="subtle">Planning</UBadge>
+        <UBadge color="primary" variant="subtle">{{ $t('salesSplit.badge') }}</UBadge>
       </template>
     </UPageHeader>
 
@@ -150,7 +151,7 @@ function barColor(index: number) {
     <section class="grid gap-4 md:grid-cols-3">
       <UCard class="glass-card">
         <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
-          Total income
+          {{ $t('salesSplit.totalIncome') }}
         </p>
         <p class="mt-3 text-2xl font-semibold text-emerald-300">
           {{ formatAmount(income) }}
@@ -158,7 +159,7 @@ function barColor(index: number) {
       </UCard>
       <UCard class="glass-card">
         <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
-          Allocated
+          {{ $t('salesSplit.allocated') }}
         </p>
         <p
           class="mt-3 text-2xl font-semibold"
@@ -169,12 +170,12 @@ function barColor(index: number) {
       </UCard>
       <UCard class="glass-card">
         <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
-          Remaining
+          {{ $t('salesSplit.remaining') }}
         </p>
         <p class="mt-3 text-2xl font-semibold text-white">
           {{ formatAmount(splitAmount(Math.max(0, 100 - totalPercent))) }}
         </p>
-        <p class="mt-1 text-xs text-slate-400">{{ Math.max(0, 100 - totalPercent) }}% unallocated</p>
+        <p class="mt-1 text-xs text-slate-400">{{ Math.max(0, 100 - totalPercent) }}{{ $t('salesSplit.unallocated') }}</p>
       </UCard>
     </section>
 
@@ -183,14 +184,14 @@ function barColor(index: number) {
       color="error"
       variant="subtle"
       class="glass-card"
-      title="Over 100%"
-      description="Your rules exceed 100% of income. Reduce percentages to get accurate amounts."
+      :title="$t('salesSplit.overLimitTitle')"
+      :description="$t('salesSplit.overLimitDesc')"
     />
 
     <!-- Split rules -->
     <section class="flex flex-col gap-4">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-white">Your rules</h2>
+        <h2 class="text-lg font-semibold text-white">{{ $t('salesSplit.rulesTitle') }}</h2>
         <UButton
           icon="i-heroicons-plus"
           color="primary"
@@ -198,12 +199,12 @@ function barColor(index: number) {
           size="sm"
           @click="addSplit"
         >
-          Add rule
+          {{ $t('salesSplit.addRule') }}
         </UButton>
       </div>
 
       <div v-if="splits.length === 0" class="glass-card rounded-2xl p-8 text-center text-slate-400">
-        No rules yet. Add your first rule above.
+        {{ $t('salesSplit.noRules') }}
       </div>
 
       <UCard
@@ -215,13 +216,13 @@ function barColor(index: number) {
           <!-- Label -->
           <div class="flex-1">
             <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Label
+              {{ $t('salesSplit.labelField') }}
             </label>
             <input
               v-model="split.label"
               type="text"
               class="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400/50 focus:ring-0"
-              placeholder="e.g. Taxes"
+              :placeholder="$t('salesSplit.labelPlaceholder')"
               @input="onInput"
             />
           </div>
@@ -229,7 +230,7 @@ function barColor(index: number) {
           <!-- Percent -->
           <div class="w-full sm:w-36">
             <label class="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Percent (%)
+              {{ $t('salesSplit.percentField') }}
             </label>
             <input
               v-model.number="split.percent"
@@ -245,7 +246,7 @@ function barColor(index: number) {
           <!-- Amount result -->
           <div class="w-full sm:w-44">
             <p class="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Amount
+              {{ $t('salesSplit.amountField') }}
             </p>
             <p :class="['text-xl font-semibold', split.color.split(' ')[0]]">
               {{ formatAmount(splitAmount(split.percent)) }}
@@ -258,7 +259,7 @@ function barColor(index: number) {
             color="error"
             variant="ghost"
             size="sm"
-            aria-label="Remove"
+            :aria-label="$t('common.delete')"
             class="self-start sm:self-center"
             @click="removeSplit(split.id)"
           />
@@ -278,7 +279,7 @@ function barColor(index: number) {
     <!-- Visual summary bar -->
     <UCard v-if="splits.length > 0" class="glass-card">
       <p class="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
-        Allocation overview
+        {{ $t('salesSplit.allocationOverview') }}
       </p>
       <div class="flex h-4 w-full overflow-hidden rounded-full bg-white/5">
         <div
@@ -301,7 +302,7 @@ function barColor(index: number) {
         </div>
         <div v-if="totalPercent < 100" class="flex items-center gap-1.5 text-xs text-slate-500">
           <span class="inline-block h-2.5 w-2.5 rounded-full bg-white/10" />
-          Unallocated — {{ 100 - totalPercent }}%
+          {{ $t('salesSplit.unallocatedLabel') }} — {{ 100 - totalPercent }}%
         </div>
       </div>
     </UCard>

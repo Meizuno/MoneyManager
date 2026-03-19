@@ -1,4 +1,6 @@
 export const useTransactions = () => {
+  const { t } = useI18n();
+
   const transactions = useState<Transaction[]>("transactions", () => []);
   const loading = useState<boolean>("transactions_loading", () => false);
   const errorMessage = useState<string>("transactions_error", () => "");
@@ -9,30 +11,37 @@ export const useTransactions = () => {
   const filterDateTo = useState<string>("transactions_filter_date_to", () => "");
   const filterDatePreset = useState<string>("transactions_filter_date_preset", () => "all");
 
-  const typeOptions = [
-    "other",
-    "income",
-    "expense",
-    "transfer",
-    "fee",
-    "conversion",
-    "refund",
-  ];
+  const typeIconMap: Record<string, string> = {
+    income: "i-heroicons-arrow-trending-up",
+    expense: "i-heroicons-arrow-trending-down",
+  };
 
-  const categoryOptions = [
-    "other",
-    "groceries",
-    "restaurant",
-    "transport",
-    "housing",
-    "utilities",
-    "entertainment",
-    "health",
-    "sport",
-    "travel",
-    "education",
-    "shopping",
-  ];
+  const categoryIconMap: Record<string, string> = {
+    sale: "i-heroicons-tag",
+    interest: "i-heroicons-chart-bar",
+    rental: "i-heroicons-home",
+    food: "i-heroicons-cake",
+    wishes: "i-heroicons-heart",
+    car: "i-heroicons-truck",
+    loan: "i-heroicons-credit-card",
+    other: "i-heroicons-ellipsis-horizontal",
+  };
+
+  const typeValues = ["income", "expense"];
+
+  const categoryValuesByType: Record<string, string[]> = {
+    income: ["sale", "interest", "other"],
+    expense: ["rental", "food", "wishes", "car", "loan", "other"],
+  };
+
+  const typeOptions = computed(() =>
+    typeValues.map((v) => ({ label: t(`types.${v}`), value: v, icon: typeIconMap[v] }))
+  );
+
+  const getCategoryOptions = (type: string) => {
+    const values = categoryValuesByType[type] ?? categoryValuesByType.expense;
+    return values.map((v) => ({ label: t(`categories.${v}`), value: v, icon: categoryIconMap[v] }));
+  };
 
   const categories = computed(() => {
     const set = new Set<string>(["other"]);
@@ -40,31 +49,40 @@ export const useTransactions = () => {
       if (item.category) set.add(item.category);
     });
     const list = Array.from(set).sort((a, b) => a.localeCompare(b));
-    return ["all", ...list];
+    return [
+      { label: t("types.all"), value: "all" },
+      ...list.map((v) => ({ label: t(`categories.${v}`) ?? v, value: v, icon: categoryIconMap[v] })),
+    ];
   });
-  const types = computed(() => ["all", ...typeOptions]);
-  const datePresetOptions = [
-    { label: "All time", value: "all" },
-    { label: "This month", value: "this-month" },
-    { label: "Previous month", value: "previous-month" },
-    { label: "This year", value: "this-year" },
-    { label: "Custom range", value: "custom" },
-  ];
+
+  const types = computed(() => [
+    { label: t("types.all"), value: "all" },
+    ...typeValues.map((v) => ({ label: t(`types.${v}`), value: v, icon: typeIconMap[v] })),
+  ]);
+
+  const datePresetOptions = computed(() => [
+    { label: t("datePresets.all"), value: "all" },
+    { label: t("datePresets.thisMonth"), value: "this-month" },
+    { label: t("datePresets.prevMonth"), value: "previous-month" },
+    { label: t("datePresets.thisYear"), value: "this-year" },
+    { label: t("datePresets.custom"), value: "custom" },
+  ]);
 
   const totals = computed(() => {
     let income = 0;
     let expenses = 0;
     transactions.value.forEach((item) => {
-      if (item.amount >= 0) {
-        income += item.amount;
+      const abs = Math.abs(item.amount ?? 0);
+      if (item.type === "income") {
+        income += abs;
       } else {
-        expenses += item.amount;
+        expenses += abs;
       }
     });
     return {
       income,
       expenses,
-      net: income + expenses,
+      net: income - expenses,
     };
   });
 
@@ -72,7 +90,9 @@ export const useTransactions = () => {
     const map = new Map<string, number>();
     transactions.value.forEach((item) => {
       const key = item.category || "other";
-      map.set(key, (map.get(key) ?? 0) + item.amount);
+      const abs = Math.abs(item.amount ?? 0);
+      const signed = item.type === "income" ? abs : -abs;
+      map.set(key, (map.get(key) ?? 0) + signed);
     });
     return Array.from(map.entries())
       .map(([category, total]) => ({ category, total }))
@@ -245,7 +265,7 @@ export const useTransactions = () => {
     filterDateTo,
     filterDatePreset,
     typeOptions,
-    categoryOptions,
+    getCategoryOptions,
     categories,
     types,
     datePresetOptions,

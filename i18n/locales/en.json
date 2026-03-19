@@ -1,0 +1,137 @@
+{
+  "datePresets": {
+    "all": "All time",
+    "thisMonth": "This month",
+    "prevMonth": "Previous month",
+    "thisYear": "This year",
+    "custom": "Custom range"
+  },
+  "types": {
+    "all": "All",
+    "income": "Income",
+    "expense": "Expense"
+  },
+  "nav": {
+    "overview": "Overview",
+    "transactions": "Transactions",
+    "salesSplit": "Sales Split"
+  },
+  "common": {
+    "loading": "Loading",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "add": "Add",
+    "clear": "Clear",
+    "required": "Required: date, name, amount."
+  },
+  "overview": {
+    "badge": "Overview",
+    "title": "Personal cash flow studio",
+    "description": "Track how money moves across spending categories and transaction types.",
+    "loadingTitle": "Loading data",
+    "loadingDesc": "Fetching your latest transactions.",
+    "errorTitle": "Something went wrong",
+    "pageTitle": "Money Manager"
+  },
+  "stats": {
+    "income": "Income",
+    "expenses": "Expenses",
+    "net": "Net"
+  },
+  "categories": {
+    "title": "Spending categories",
+    "empty": "Category insights will appear after importing data.",
+    "sale": "Sale",
+    "interest": "Interest",
+    "rental": "Rental",
+    "food": "Food",
+    "wishes": "Wishes",
+    "car": "Car",
+    "loan": "Loan",
+    "other": "Other"
+  },
+  "transactions": {
+    "badge": "Transactions",
+    "title": "Manage entries",
+    "description": "Add manual entries, tidy imports, and keep your ledger accurate.",
+    "pageTitle": "Transactions",
+    "listTitle": "Transactions",
+    "listDesc": "Review, edit, or clean up entries from imports and manual adds.",
+    "netTotal": "Net total",
+    "shown": "entries shown",
+    "loadingTitle": "Loading transactions",
+    "loadingDesc": "Syncing your latest entries.",
+    "errorTitle": "Action failed",
+    "successTitle": "Update complete",
+    "emptyTitle": "No transactions yet",
+    "emptyDesc": "Import a CSV for bulk entries or add a manual transaction.",
+    "importCsv": "Import CSV",
+    "addManually": "Add manually",
+    "saveChanges": "Save changes",
+    "filterCategory": "Filter by category",
+    "filterCategoryHelp": "Narrow the list to a single spending category.",
+    "filterType": "Filter by type",
+    "filterTypeHelp": "Show only a single transaction type.",
+    "datePreset": "Date preset",
+    "datePresetHelp": "Quickly scope a common range.",
+    "dateRange": "Date range"
+  },
+  "form": {
+    "title": "Add transaction",
+    "description": "Capture manual entries like cash spending or transfers.",
+    "badge": "Manual entry",
+    "date": "Date",
+    "dateHelp": "Use the posting date from your statement.",
+    "name": "Name",
+    "nameHelp": "Keep it short so it's easy to scan.",
+    "namePlaceholder": "Coffee with team",
+    "amount": "Amount",
+    "amountHelp": "Always enter a positive number.",
+    "currency": "Currency",
+    "currencyHelp": "ISO currency code, e.g. CZK.",
+    "currencyPlaceholder": "CZK",
+    "type": "Type",
+    "typeHelp": "Income or expense.",
+    "category": "Spending category",
+    "categoryHelp": "Pick the closest match.",
+    "addButton": "Add transaction"
+  },
+  "salesSplit": {
+    "badge": "Planning",
+    "title": "Sales split",
+    "description": "Define what percentage of your income you want to keep for taxes, savings, or any other purpose.",
+    "pageTitle": "Sales Split — Money Manager",
+    "totalIncome": "Total income",
+    "allocated": "Allocated",
+    "remaining": "Remaining",
+    "unallocated": "% unallocated",
+    "overLimitTitle": "Over 100%",
+    "overLimitDesc": "Your rules exceed 100% of income. Reduce percentages to get accurate amounts.",
+    "rulesTitle": "Your rules",
+    "addRule": "Add rule",
+    "noRules": "No rules yet. Add your first rule above.",
+    "labelPlaceholder": "e.g. Taxes",
+    "labelField": "Label",
+    "percentField": "Percent (%)",
+    "amountField": "Amount",
+    "allocationOverview": "Allocation overview",
+    "unallocatedLabel": "Unallocated",
+    "newRule": "New rule",
+    "defaultTaxes": "Taxes",
+    "defaultSavings": "Savings"
+  },
+  "header": {
+    "tagline": "Cashflow control"
+  },
+  "auth": {
+    "forbidden": "Access denied (403)",
+    "forbiddenDesc": "Your account is not allowed to sign in.",
+    "signIn": "Sign in with Google",
+    "signedIn": "Signed in",
+    "logOut": "Log out",
+    "anonMode": "Anonymous mode",
+    "anonDesc": "Data imported while anonymous is not stored."
+  }
+}
