@@ -1,5 +1,5 @@
-import { useRuntimeConfig, setUserSession } from "#imports";
-import { createError, sendRedirect } from "h3";
+import { useRuntimeConfig } from "#imports";
+import { createError, sendRedirect, setCookie } from "h3";
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const state = crypto.randomUUID();
-  await setUserSession(event, { oauthState: state });
+  setCookie(event, "oauth_state", state, { httpOnly: true, sameSite: "lax", maxAge: 300 });
 
   const params = new URLSearchParams({
     client_id: clientId,

@@ -18,7 +18,7 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ["@nuxt/ui", "nuxt-auth-utils", "@nuxtjs/i18n"],
+  modules: ["@nuxt/ui", "@nuxtjs/i18n"],
   css: ["~/assets/css/main.css"],
 
   i18n: {
@@ -36,6 +36,13 @@ export default defineNuxtConfig({
       accessTokenTTL: "900",
       refreshTokenTTL: "2592000",
       allowedEmails: "",
+    },
+    oauth: {
+      google: {
+        clientId: "",
+        clientSecret: "",
+        redirectURL: "",
+      },
     },
   },
 });

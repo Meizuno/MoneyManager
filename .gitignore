@@ -24,3 +24,9 @@ logs
 !.env.example
 
 .vscode
+
+# SQLite databases
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-shm
+prisma/*.db-wal

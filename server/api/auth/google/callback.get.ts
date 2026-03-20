@@ -1,5 +1,5 @@
-import { createError, getQuery, sendRedirect } from "h3";
-import { useRuntimeConfig, getUserSession, replaceUserSession } from "#imports";
+import { createError, getQuery, sendRedirect, getCookie, deleteCookie } from "h3";
+import { useRuntimeConfig } from "#imports";
 import { getPrisma } from "../../../utils/db";
 
 type GoogleTokenResponse = {
@@ -23,8 +23,9 @@ export default defineEventHandler(async (event) => {
   const code = typeof query.code === "string" ? query.code : "";
   const state = typeof query.state === "string" ? query.state : "";
 
-  const session = await getUserSession(event);
-  if (!session.oauthState || session.oauthState !== state) {
+  const savedState = getCookie(event, "oauth_state");
+  deleteCookie(event, "oauth_state");
+  if (!savedState || savedState !== state) {
     throw createError({
       statusCode: 400,
       statusMessage: "Invalid OAuth state.",
@@ -125,8 +126,5 @@ export default defineEventHandler(async (event) => {
   });
 
   setAuthCookies(event, accessToken, refreshToken, accessTTL, refreshTTL);
-  await replaceUserSession(event, {
-    user: { id: userId, email, name, picture },
-  });
   return sendRedirect(event, "/");
 });

@@ -5,10 +5,6 @@ export const normalizeCategory = (category?: string | null) => {
   return trimmed.length > 0 ? trimmed : "other";
 };
 
-export const normalizeTransactionType = (amount: number) => {
-  return amount > 0 ? "income": "expense"
-};
-
 export const normalizeTransactionInput = (input: TransactionInput) => {
   const date = (input.date ?? "").trim();
   const name = (input.name ?? "").trim();
@@ -30,12 +26,15 @@ export const normalizeTransactionInput = (input: TransactionInput) => {
       ? input.currency.trim()
       : null;
 
+  const typeRaw = typeof input.type === "string" ? input.type.trim().toLowerCase() : "";
+  const type = typeRaw === "income" || typeRaw === "expense" ? typeRaw : (amount >= 0 ? "income" : "expense");
+
   return {
     date,
     name,
-    amount,
+    amount: Math.abs(amount),
     currency,
-    type: normalizeTransactionType(input.amount),
+    type,
     category: normalizeCategory(input.category),
   };
 };

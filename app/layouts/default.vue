@@ -27,6 +27,10 @@ function cycleLocale() {
 const currentFlag = computed(() =>
   availableLocales.value.find((l) => l.code === locale.value)?.flag ?? locale.value.toUpperCase()
 );
+
+function signIn() {
+  if (import.meta.client) window.location.href = "/api/auth/google";
+}
 </script>
 
 <template>
@@ -67,11 +71,10 @@ const currentFlag = computed(() =>
           <div v-if="!authReady" class="h-8 w-28 rounded-full bg-white/5"></div>
           <UButton
             v-else-if="!loggedIn"
-            href="/api/auth/google"
-            external
             color="primary"
             variant="solid"
             size="sm"
+            @click="signIn"
           >
             {{ $t('auth.signIn') }}
           </UButton>
