@@ -1,13 +1,5 @@
--- CreateTable
-CREATE TABLE "users" (
-    "id" TEXT NOT NULL,
-    "email" TEXT,
-    "name" TEXT,
-    "picture" TEXT,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
-);
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateTable
 CREATE TABLE "transactions" (
@@ -22,17 +14,6 @@ CREATE TABLE "transactions" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "transactions_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "refresh_tokens" (
-    "id" TEXT NOT NULL,
-    "user_id" TEXT NOT NULL,
-    "token" TEXT NOT NULL,
-    "expires_at" TIMESTAMP(3) NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -58,19 +39,5 @@ CREATE INDEX "transactions_category_idx" ON "transactions"("category");
 CREATE INDEX "transactions_user_id_idx" ON "transactions"("user_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "refresh_tokens_token_key" ON "refresh_tokens"("token");
-
--- CreateIndex
-CREATE INDEX "refresh_tokens_user_id_idx" ON "refresh_tokens"("user_id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "sales_splits_user_id_key" ON "sales_splits"("user_id");
 
--- AddForeignKey
-ALTER TABLE "transactions" ADD CONSTRAINT "transactions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "sales_splits" ADD CONSTRAINT "sales_splits_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

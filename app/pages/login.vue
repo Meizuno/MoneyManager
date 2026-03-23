@@ -5,7 +5,7 @@ const { user } = useAuth();
 if (user.value) await navigateTo("/");
 
 function signIn() {
-  window.location.href = "/api/auth/google";
+  window.location.href = "/api/auth/login";
 }
 </script>
 

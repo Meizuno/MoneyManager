@@ -1,72 +1,47 @@
 import { getCookie, getHeader, setCookie } from "h3";
 import type { H3Event } from "h3";
 import { createError } from "h3";
-import { verifyAccessToken } from "./jwt";
 
-type AuthUser = {
-  id: string;
-  email?: string | null;
-  name?: string | null;
-  picture?: string | null;
-};
+export type AuthUser = { id: string };
 
-export const getAccessTokenFromRequest = (event: H3Event) => {
-  // Bearer header first (for MCP/API clients that can't use cookies)
-  const header = getHeader(event, "authorization");
-  if (header && header.toLowerCase().startsWith("bearer ")) {
-    return header.slice(7).trim();
-  }
-  return getCookie(event, "mm_access") ?? null;
-};
-
-export const getAuthUser = async (event: H3Event): Promise<AuthUser | null> => {
-  const token = getAccessTokenFromRequest(event);
-  if (!token) return null;
+export const verifyAccessToken = async (token: string): Promise<AuthUser | null> => {
   try {
-    const payload = await verifyAccessToken(token);
-    return {
-      id: payload.sub as string,
-      email: (payload.email as string | undefined) ?? null,
-      name: (payload.name as string | undefined) ?? null,
-      picture: (payload.picture as string | undefined) ?? null,
-    };
+    const config = useRuntimeConfig();
+    const result = await $fetch<{ user_id: string }>(
+      `${config.authServiceUrl}/auth/validate`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    if (!result.user_id) return null;
+    return { id: result.user_id };
   } catch {
     return null;
   }
 };
 
-export const requireAuthUser = async (event: H3Event): Promise<AuthUser> => {
-  // Prefer context set by the auto-refresh middleware
-  if (event.context.authUser) return event.context.authUser as AuthUser;
+export const getAuthUser = async (event: H3Event): Promise<AuthUser | null> => {
+  const header = getHeader(event, "authorization");
+  const token = header?.toLowerCase().startsWith("bearer ")
+    ? header.slice(7).trim()
+    : (getCookie(event, "mm_access") ?? null);
+  if (!token) return null;
+  return verifyAccessToken(token);
+};
 
+export const requireAuthUser = async (event: H3Event): Promise<AuthUser> => {
+  if (event.context.authUser) return event.context.authUser as AuthUser;
   const user = await getAuthUser(event);
-  if (!user) {
-    throw createError({ statusCode: 401, statusMessage: "Unauthorized" });
-  }
+  if (!user) throw createError({ statusCode: 401, statusMessage: "Unauthorized" });
   return user;
 };
 
-export const setAuthCookies = (
-  event: H3Event,
-  accessToken: string,
-  refreshToken: string,
-  accessTTL: number,
-  refreshTTL: number,
-) => {
-  const isSecure = (process.env.NODE_ENV ?? "development") === "production";
+export const setAuthCookies = (event: H3Event, accessToken: string, refreshToken: string) => {
+  const secure = process.env.NODE_ENV === "production";
   setCookie(event, "mm_access", accessToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isSecure,
-    path: "/",
-    maxAge: accessTTL,
+    httpOnly: true, sameSite: "lax", secure, path: "/",
   });
   setCookie(event, "mm_refresh", refreshToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isSecure,
-    path: "/",
-    maxAge: refreshTTL,
+    httpOnly: true, sameSite: "lax", secure, path: "/",
+    maxAge: 60 * 60 * 24 * 7,
   });
 };
 

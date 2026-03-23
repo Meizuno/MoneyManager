@@ -31,19 +31,6 @@ export default defineNuxtConfig({
     strategy: "no_prefix",
   },
   runtimeConfig: {
-    auth: {
-      jwtSecret: "",
-      accessTokenTTL: "900",
-      refreshTokenTTL: "2592000",
-      allowedEmails: "",
-    },
-    mcpApiKey: "",
-    oauth: {
-      google: {
-        clientId: "",
-        clientSecret: "",
-        redirectURL: "",
-      },
-    },
+    authServiceUrl: "http://localhost:8080",
   },
 });
