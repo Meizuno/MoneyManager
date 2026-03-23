@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
     ?? "";
 
   const profile = await $fetch<{ id: string; email: string; name: string; avatar_url: string }>(
-    `${config.authServiceUrl}/auth/me`,
+    `${config.authServiceUrl}/me`,
     { headers: { authorization: `Bearer ${token}` } },
   );
 

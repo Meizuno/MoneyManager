@@ -8,7 +8,7 @@ export const verifyAccessToken = async (token: string): Promise<AuthUser | null>
   try {
     const config = useRuntimeConfig();
     const result = await $fetch<{ user_id: string }>(
-      `${config.authServiceUrl}/auth/validate`,
+      `${config.authServiceUrl}/validate`,
       { headers: { authorization: `Bearer ${token}` } },
     );
     if (!result.user_id) return null;
