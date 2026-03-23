@@ -4,8 +4,16 @@ definePageMeta({ layout: false });
 const { user } = useAuth();
 if (user.value) await navigateTo("/");
 
+const { isGuest, enterGuest } = useGuest();
+if (isGuest.value) await navigateTo("/");
+
 function signIn() {
   window.location.href = "/api/auth/login";
+}
+
+function continueAsGuest() {
+  enterGuest();
+  navigateTo("/");
 }
 </script>
 
@@ -24,6 +32,9 @@ function signIn() {
       <UButton size="lg" color="primary" variant="solid" @click="signIn">
         <UIcon name="i-heroicons-arrow-right-on-rectangle" class="mr-2 h-5 w-5" />
         {{ $t('auth.signIn') }}
+      </UButton>
+      <UButton size="md" color="neutral" variant="ghost" @click="continueAsGuest">
+        {{ $t('auth.continueAsGuest') }}
       </UButton>
     </div>
   </div>

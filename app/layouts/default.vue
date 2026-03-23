@@ -8,6 +8,12 @@ const navLinks = computed(() => [
 ]);
 
 const { user, logout } = useAuth();
+const { isGuest, exitGuest } = useGuest();
+
+async function leaveGuest() {
+  exitGuest();
+  await navigateTo("/login");
+}
 
 const availableLocales = computed(() =>
   (locales.value as { code: string; flag: string }[])
@@ -60,12 +66,22 @@ const currentFlag = computed(() =>
             <UIcon :name="currentFlag" class="h-5 w-5" />
           </button>
           <div class="h-6 w-px bg-white/10"></div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-slate-300">{{ user?.name ?? $t('auth.signedIn') }}</span>
-            <UButton color="neutral" variant="outline" size="sm" @click="logout">
-              {{ $t('auth.logOut') }}
-            </UButton>
-          </div>
+          <ClientOnly>
+            <div v-if="isGuest" class="flex items-center gap-2">
+              <span class="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
+                {{ $t('auth.guest') }}
+              </span>
+              <UButton color="neutral" variant="outline" size="sm" @click="leaveGuest">
+                {{ $t('auth.signIn') }}
+              </UButton>
+            </div>
+            <div v-else class="flex items-center gap-2">
+              <span class="text-xs text-slate-300">{{ user?.name ?? $t('auth.signedIn') }}</span>
+              <UButton color="neutral" variant="outline" size="sm" @click="logout">
+                {{ $t('auth.logOut') }}
+              </UButton>
+            </div>
+          </ClientOnly>
         </nav>
       </UContainer>
     </header>

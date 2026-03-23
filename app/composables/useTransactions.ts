@@ -1,5 +1,6 @@
 export const useTransactions = () => {
   const { t } = useI18n();
+  const { isGuest, loadGuestTransactions, saveGuestTransactions } = useGuest();
 
   const transactions = useState<Transaction[]>("transactions", () => []);
   const loading = useState<boolean>("transactions_loading", () => false);
@@ -132,6 +133,11 @@ export const useTransactions = () => {
 
   const { apiFetch } = useAuth();
 
+  const nextGuestId = () => {
+    const items = loadGuestTransactions();
+    return items.reduce((max, t) => Math.max(max, t.id), 0) + 1;
+  };
+
   const normalizeTypeFilter = (value: string) => {
     const normalized = value.trim().toLowerCase();
     if (!normalized) return "all";
@@ -183,26 +189,24 @@ export const useTransactions = () => {
   );
 
   const loadTransactions = async (opts?: { force?: boolean; preserveStatus?: boolean }) => {
-    if (!opts?.force && transactions.value.length > 0) {
-      return;
-    }
+    if (!opts?.force && transactions.value.length > 0) return;
     loading.value = true;
-    if (!opts?.preserveStatus) {
-      resetMessages();
-    } else {
-      errorMessage.value = "";
-    }
+    if (!opts?.preserveStatus) resetMessages(); else errorMessage.value = "";
     try {
-      const data = await apiFetch<{ items: Transaction[] }>("/api/transactions", {
-        query: {
-          category: filterCategory.value,
-          type: normalizedFilterType.value,
-          dateFrom: filterDateFrom.value || undefined,
-          dateTo: filterDateTo.value || undefined,
-        },
-      });
-      transactions.value = data.items ?? [];
-    } catch (error) {
+      if (isGuest.value) {
+        transactions.value = loadGuestTransactions();
+      } else {
+        const data = await apiFetch<{ items: Transaction[] }>("/api/transactions", {
+          query: {
+            category: filterCategory.value,
+            type: normalizedFilterType.value,
+            dateFrom: filterDateFrom.value || undefined,
+            dateTo: filterDateTo.value || undefined,
+          },
+        });
+        transactions.value = data.items ?? [];
+      }
+    } catch {
       errorMessage.value = "Unable to load transactions.";
     } finally {
       loading.value = false;
@@ -212,14 +216,19 @@ export const useTransactions = () => {
   const createTransaction = async (input: TransactionInput) => {
     resetMessages();
     try {
-      await apiFetch("/api/transactions", {
-        method: "POST",
-        body: input,
-      });
+      if (isGuest.value) {
+        const items = loadGuestTransactions();
+        const now = new Date().toISOString();
+        items.push({ ...input, id: nextGuestId(), created_at: now } as Transaction);
+        saveGuestTransactions(items);
+        transactions.value = items;
+      } else {
+        await apiFetch("/api/transactions", { method: "POST", body: input });
+        await loadTransactions({ force: true, preserveStatus: true });
+      }
       statusMessage.value = "Transaction added.";
-      await loadTransactions();
       return true;
-    } catch (error) {
+    } catch {
       errorMessage.value = "Unable to add transaction.";
       return false;
     }
@@ -228,14 +237,19 @@ export const useTransactions = () => {
   const updateTransaction = async (id: number, input: TransactionInput) => {
     resetMessages();
     try {
-      await apiFetch(`/api/transactions/${id}`, {
-        method: "PUT",
-        body: input,
-      });
+      if (isGuest.value) {
+        const items = loadGuestTransactions().map((t) =>
+          t.id === id ? { ...t, ...input } : t
+        );
+        saveGuestTransactions(items);
+        transactions.value = items;
+      } else {
+        await apiFetch(`/api/transactions/${id}`, { method: "PUT", body: input });
+        await loadTransactions({ force: true, preserveStatus: true });
+      }
       statusMessage.value = "Transaction updated.";
-      await loadTransactions();
       return true;
-    } catch (error) {
+    } catch {
       errorMessage.value = "Unable to update transaction.";
       return false;
     }
@@ -244,11 +258,17 @@ export const useTransactions = () => {
   const deleteTransaction = async (id: number) => {
     resetMessages();
     try {
-      await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
+      if (isGuest.value) {
+        const items = loadGuestTransactions().filter((t) => t.id !== id);
+        saveGuestTransactions(items);
+        transactions.value = items;
+      } else {
+        await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
+        await loadTransactions({ force: true, preserveStatus: true });
+      }
       statusMessage.value = "Transaction deleted.";
-      await loadTransactions();
       return true;
-    } catch (error) {
+    } catch {
       errorMessage.value = "Unable to delete transaction.";
       return false;
     }

@@ -131,6 +131,8 @@
     "signIn": "Sign in with Google",
     "signedIn": "Signed in",
     "logOut": "Log out",
+    "guest": "Guest",
+    "continueAsGuest": "Continue as guest",
     "anonMode": "Anonymous mode",
     "anonDesc": "Data imported while anonymous is not stored."
   }
