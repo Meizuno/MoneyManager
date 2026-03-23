@@ -37,6 +37,7 @@ export default defineNuxtConfig({
       refreshTokenTTL: "2592000",
       allowedEmails: "",
     },
+    mcpApiKey: "",
     oauth: {
       google: {
         clientId: "",

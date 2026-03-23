@@ -7,12 +7,7 @@ const navLinks = computed(() => [
   { label: t("nav.salesSplit"), to: "/sales-split" },
 ]);
 
-const { loggedIn, user, logout } = useAuth();
-const authReady = ref(false);
-
-onMounted(() => {
-  authReady.value = true;
-});
+const { user, logout } = useAuth();
 
 const availableLocales = computed(() =>
   (locales.value as { code: string; flag: string }[])
@@ -28,9 +23,6 @@ const currentFlag = computed(() =>
   availableLocales.value.find((l) => l.code === locale.value)?.flag ?? locale.value.toUpperCase()
 );
 
-function signIn() {
-  if (import.meta.client) window.location.href = "/api/auth/google";
-}
 </script>
 
 <template>
@@ -68,17 +60,7 @@ function signIn() {
             <UIcon :name="currentFlag" class="h-5 w-5" />
           </button>
           <div class="h-6 w-px bg-white/10"></div>
-          <div v-if="!authReady" class="h-8 w-28 rounded-full bg-white/5"></div>
-          <UButton
-            v-else-if="!loggedIn"
-            color="primary"
-            variant="solid"
-            size="sm"
-            @click="signIn"
-          >
-            {{ $t('auth.signIn') }}
-          </UButton>
-          <div v-else class="flex items-center gap-2">
+          <div class="flex items-center gap-2">
             <span class="text-xs text-slate-300">{{ user?.name ?? $t('auth.signedIn') }}</span>
             <UButton color="neutral" variant="outline" size="sm" @click="logout">
               {{ $t('auth.logOut') }}
@@ -87,18 +69,6 @@ function signIn() {
         </nav>
       </UContainer>
     </header>
-    <div
-      v-if="authReady && !loggedIn"
-      class="border-b border-amber-400/20 bg-amber-400/10"
-    >
-      <UContainer class="py-2">
-        <div class="flex items-center gap-2 text-xs text-amber-200">
-          <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>
-          <span class="font-semibold">{{ $t('auth.anonMode') }}:</span>
-          <span>{{ $t('auth.anonDesc') }}</span>
-        </div>
-      </UContainer>
-    </div>
     <main class="py-10">
       <UContainer>
         <NuxtPage />

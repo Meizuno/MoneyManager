@@ -1,4 +1,3 @@
-
 type AuthUser = {
   id: string;
   email?: string | null;
@@ -6,34 +5,19 @@ type AuthUser = {
   picture?: string | null;
 };
 
-type RefreshResponse = {
-  accessToken: string;
-  user: AuthUser;
-};
-
 export const useAuth = () => {
-  const accessToken = useState<string | null>("auth_access_token", () => null);
   const user = useState<AuthUser | null>("auth_user", () => null);
-  const refreshing = useState<boolean>("auth_refreshing", () => false);
-
   const loggedIn = computed(() => Boolean(user.value));
 
-  const refresh = async () => {
-    if (refreshing.value) return Boolean(accessToken.value);
-    refreshing.value = true;
+  // Fetch current user from the server (also triggers token refresh via server middleware)
+  const refresh = async (): Promise<boolean> => {
     try {
-      const result = await $fetch<RefreshResponse>("/api/auth/refresh", {
-        method: "POST",
-      });
-      accessToken.value = result.accessToken;
-      user.value = result.user;
+      const data = await $fetch<{ user: AuthUser }>("/api/auth/me");
+      user.value = data.user;
       return true;
     } catch {
-      accessToken.value = null;
       user.value = null;
       return false;
-    } finally {
-      refreshing.value = false;
     }
   };
 
@@ -41,38 +25,26 @@ export const useAuth = () => {
     try {
       await $fetch("/api/auth/logout", { method: "POST" });
     } catch {
-      // Ignore logout errors.
+      // ignore
     }
-    accessToken.value = null;
     user.value = null;
+    await navigateTo("/login");
   };
 
+  // All API calls use cookies automatically (httpOnly, same-origin).
+  // If the server returns 401 (both tokens expired), redirect to login.
   const apiFetch = async <T>(url: string, options: Parameters<typeof $fetch>[1] = {}) => {
-    const headers = new Headers(options?.headers as HeadersInit | undefined);
-    if (accessToken.value) {
-      headers.set("authorization", `Bearer ${accessToken.value}`);
-    }
     try {
-      return await $fetch<T>(url, { ...options, headers });
+      return await $fetch<T>(url, options);
     } catch (error: any) {
       const status = error?.statusCode ?? error?.status ?? 0;
       if (status === 401) {
-        const ok = await refresh();
-        if (ok && accessToken.value) {
-          headers.set("authorization", `Bearer ${accessToken.value}`);
-          return await $fetch<T>(url, { ...options, headers });
-        }
+        user.value = null;
+        await navigateTo("/login");
       }
       throw error;
     }
   };
 
-  return {
-    accessToken,
-    user,
-    loggedIn,
-    refresh,
-    logout,
-    apiFetch,
-  };
+  return { user, loggedIn, refresh, logout, apiFetch };
 };

@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { getHeader } from "h3";
 import { z } from "zod/v3";
 
 const parseDate = (value: string | undefined, endOfDay: boolean) => {
@@ -9,8 +10,27 @@ const parseDate = (value: string | undefined, endOfDay: boolean) => {
 };
 
 export default defineEventHandler(async (event) => {
-  const user = await requireAuthUser(event);
-  const userId = user.id;
+  const config = useRuntimeConfig();
+  const staticKey = (config.mcpApiKey as string | undefined)?.trim();
+
+  let userId: string;
+
+  if (staticKey) {
+    // Static API key mode: validate Bearer token against the configured key
+    const header = getHeader(event, "authorization") ?? "";
+    if (!header.toLowerCase().startsWith("bearer ") || header.slice(7).trim() !== staticKey) {
+      throw createError({ statusCode: 401, statusMessage: "Unauthorized" });
+    }
+    // Resolve the actual user from DB (first and only allowed user, or a dedicated service account)
+    const db2 = getPrisma();
+    const firstUser = await db2.user.findFirst({ select: { id: true } });
+    if (!firstUser) throw createError({ statusCode: 403, statusMessage: "No user found" });
+    userId = firstUser.id;
+  } else {
+    // Cookie / JWT mode (browser session or Bearer JWT)
+    const user = await requireAuthUser(event);
+    userId = user.id;
+  }
 
   const db = getPrisma();
   const server = new McpServer({ name: "money-manager", version: "1.0.0" });

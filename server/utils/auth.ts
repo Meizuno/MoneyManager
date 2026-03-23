@@ -11,12 +11,12 @@ type AuthUser = {
 };
 
 export const getAccessTokenFromRequest = (event: H3Event) => {
+  // Bearer header first (for MCP/API clients that can't use cookies)
   const header = getHeader(event, "authorization");
   if (header && header.toLowerCase().startsWith("bearer ")) {
     return header.slice(7).trim();
   }
-  const cookieToken = getCookie(event, "mm_access");
-  return cookieToken ?? null;
+  return getCookie(event, "mm_access") ?? null;
 };
 
 export const getAuthUser = async (event: H3Event): Promise<AuthUser | null> => {
@@ -35,13 +35,13 @@ export const getAuthUser = async (event: H3Event): Promise<AuthUser | null> => {
   }
 };
 
-export const requireAuthUser = async (event: H3Event) => {
+export const requireAuthUser = async (event: H3Event): Promise<AuthUser> => {
+  // Prefer context set by the auto-refresh middleware
+  if (event.context.authUser) return event.context.authUser as AuthUser;
+
   const user = await getAuthUser(event);
   if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: "Unauthorized",
-    });
+    throw createError({ statusCode: 401, statusMessage: "Unauthorized" });
   }
   return user;
 };

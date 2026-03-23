@@ -5,13 +5,14 @@ let prisma: PrismaClient | null = null;
 
 export const getPrisma = () => {
   if (!prisma) {
-    if (!process.env.DATABASE_URL) {
+    const datasourceUrl = process.env.NUXT_DATABASE_URL;
+    if (!datasourceUrl) {
       throw createError({
         statusCode: 500,
-        statusMessage: "DATABASE_URL is not configured.",
+        statusMessage: "NUXT_DATABASE_URL is not configured.",
       });
     }
-    prisma = new PrismaClient();
+    prisma = new PrismaClient({ datasourceUrl });
   }
   return prisma;
 };
