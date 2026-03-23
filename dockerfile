@@ -4,6 +4,8 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
+# Placeholder URL so `prisma generate` can validate the schema without a real DB
+ENV NUXT_DATABASE_URL="postgresql://x:x@x:5432/x"
 RUN pnpm install --frozen-lockfile
 
 COPY . .
