@@ -16,6 +16,7 @@ const {
   datePresetOptions,
   typeOptions,
   getCategoryOptions,
+  MANAGE_CATEGORIES_VALUE,
   formatAmount,
   loadTransactions,
   createTransaction,
@@ -92,6 +93,7 @@ useHead({ title: t("transactions.pageTitle") });
         <TransactionForm
           :type-options="typeOptions"
           :get-category-options="getCategoryOptions"
+          :manage-categories-value="MANAGE_CATEGORIES_VALUE"
           @submit="handleCreate"
         />
       </div>

@@ -25,11 +25,27 @@ model Transaction {
   @@map("transactions")
 }
 
-model SalesSplit {
+model SalesSplitRule {
   id         Int      @id @default(autoincrement())
-  user_id    String   @unique
-  rules      Json     @default("[]")
-  updated_at DateTime @updatedAt
+  user_id    String
+  label      String
+  percent    Decimal
+  color      String
+  position   Int      @default(0)
+  created_at DateTime @default(now())
 
-  @@map("sales_splits")
+  @@index([user_id])
+  @@map("sales_split_rules")
+}
+
+model IncomeCategoryRule {
+  id         Int      @id @default(autoincrement())
+  user_id    String
+  label      String
+  color      String
+  position   Int      @default(0)
+  created_at DateTime @default(now())
+
+  @@index([user_id])
+  @@map("income_category_rules")
 }

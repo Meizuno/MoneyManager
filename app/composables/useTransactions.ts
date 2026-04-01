@@ -39,20 +39,51 @@ export const useTransactions = () => {
     typeValues.map((v) => ({ label: t(`types.${v}`), value: v, icon: typeIconMap[v] }))
   );
 
+  const splitRules = useState<{ id: number; label: string; color: string }[]>("split_rules", () => []);
+  const incomeCategories = useState<{ id: number; label: string; color: string }[]>("income_categories", () => []);
+
+  const MANAGE_CATEGORIES_VALUE = "__manage_categories__";
+
   const getCategoryOptions = (type: string) => {
-    const values = categoryValuesByType[type] ?? categoryValuesByType.expense;
+    if (type === "expense") {
+      return [
+        ...splitRules.value.map((r) => ({
+          label: r.label,
+          value: String(r.id),
+          chip: { color: r.color },
+        })),
+        { label: t("form.manageCategories"), value: MANAGE_CATEGORIES_VALUE, icon: "i-heroicons-cog-6-tooth" },
+      ];
+    }
+    if (type === "income") {
+      return [
+        ...incomeCategories.value.map((r) => ({
+          label: r.label,
+          value: String(r.id),
+          chip: { color: r.color },
+        })),
+        { label: t("form.manageCategories"), value: MANAGE_CATEGORIES_VALUE, icon: "i-heroicons-cog-6-tooth" },
+      ];
+    }
+    const values = categoryValuesByType[type] ?? categoryValuesByType.income;
     return values.map((v) => ({ label: t(`categories.${v}`), value: v, icon: categoryIconMap[v] }));
   };
 
   const categories = computed(() => {
-    const set = new Set<string>(["other"]);
+    const set = new Set<string>();
     transactions.value.forEach((item) => {
       if (item.category) set.add(item.category);
     });
     const list = Array.from(set).sort((a, b) => a.localeCompare(b));
     return [
       { label: t("types.all"), value: "all" },
-      ...list.map((v) => ({ label: t(`categories.${v}`) ?? v, value: v, icon: categoryIconMap[v] })),
+      ...list.map((v) => ({
+        label: splitRules.value.find((r) => String(r.id) === v)?.label
+          ?? incomeCategories.value.find((r) => String(r.id) === v)?.label
+          ?? t(`categories.${v}`) ?? v,
+        value: v,
+        icon: categoryIconMap[v] ?? "i-heroicons-chart-pie",
+      })),
     ];
   });
 
@@ -188,6 +219,34 @@ export const useTransactions = () => {
     { immediate: true },
   );
 
+  const loadSplitRules = async () => {
+    if (isGuest.value) {
+      try {
+        const stored = localStorage.getItem("mm_guest_splits");
+        splitRules.value = stored ? JSON.parse(stored) : [];
+      } catch { splitRules.value = []; }
+      return;
+    }
+    try {
+      const data = await apiFetch<{ rules: { id: number; label: string; color: string }[] }>("/api/sales-split");
+      splitRules.value = data.rules ?? [];
+    } catch { splitRules.value = []; }
+  };
+
+  const loadIncomeCategories = async () => {
+    if (isGuest.value) {
+      try {
+        const stored = localStorage.getItem("mm_guest_income_categories");
+        incomeCategories.value = stored ? JSON.parse(stored) : [];
+      } catch { incomeCategories.value = []; }
+      return;
+    }
+    try {
+      const data = await apiFetch<{ categories: { id: number; label: string; color: string }[] }>("/api/income-categories");
+      incomeCategories.value = data.categories ?? [];
+    } catch { incomeCategories.value = []; }
+  };
+
   const loadTransactions = async (opts?: { force?: boolean; preserveStatus?: boolean }) => {
     if (!opts?.force && transactions.value.length > 0) return;
     loading.value = true;
@@ -196,14 +255,18 @@ export const useTransactions = () => {
       if (isGuest.value) {
         transactions.value = loadGuestTransactions();
       } else {
-        const data = await apiFetch<{ items: Transaction[] }>("/api/transactions", {
-          query: {
-            category: filterCategory.value,
-            type: normalizedFilterType.value,
-            dateFrom: filterDateFrom.value || undefined,
-            dateTo: filterDateTo.value || undefined,
-          },
-        });
+        const [data] = await Promise.all([
+          apiFetch<{ items: Transaction[] }>("/api/transactions", {
+            query: {
+              category: filterCategory.value,
+              type: normalizedFilterType.value,
+              dateFrom: filterDateFrom.value || undefined,
+              dateTo: filterDateTo.value || undefined,
+            },
+          }),
+          splitRules.value.length === 0 ? loadSplitRules() : Promise.resolve(),
+          incomeCategories.value.length === 0 ? loadIncomeCategories() : Promise.resolve(),
+        ]);
         transactions.value = data.items ?? [];
       }
     } catch {
@@ -275,6 +338,7 @@ export const useTransactions = () => {
   };
 
   return {
+    MANAGE_CATEGORIES_VALUE,
     transactions,
     loading,
     errorMessage,
@@ -286,6 +350,10 @@ export const useTransactions = () => {
     filterDatePreset,
     typeOptions,
     getCategoryOptions,
+    splitRules,
+    loadSplitRules,
+    incomeCategories,
+    loadIncomeCategories,
     categories,
     types,
     datePresetOptions,

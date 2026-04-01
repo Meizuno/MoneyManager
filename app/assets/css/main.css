@@ -11,6 +11,27 @@
   --accent-strong: #0ea5e9;
   --card: rgba(15, 23, 42, 0.7);
   --card-border: rgba(148, 163, 184, 0.18);
+
+  /* Map split/category color names to NUI's --ui-* system */
+  --ui-cyan: var(--color-cyan-400);
+  --ui-violet: var(--color-violet-400);
+  --ui-amber: var(--color-amber-400);
+  --ui-emerald: var(--color-emerald-400);
+  --ui-rose: var(--color-rose-400);
+  --ui-sky: var(--color-sky-400);
+  --ui-indigo: var(--color-indigo-400);
+  --ui-pink: var(--color-pink-400);
+  --ui-orange: var(--color-orange-400);
+  --ui-teal: var(--color-teal-400);
+  --ui-purple: var(--color-purple-400);
+  --ui-yellow: var(--color-yellow-400);
+  --ui-red: var(--color-red-400);
+  --ui-blue: var(--color-blue-400);
+  --ui-green: var(--color-green-400);
+  --ui-fuchsia: var(--color-fuchsia-400);
+  --ui-lime: var(--color-lime-400);
+  --ui-slate: var(--color-slate-400);
+  --ui-zinc: var(--color-zinc-400);
 }
 
 body {

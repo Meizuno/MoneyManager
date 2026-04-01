@@ -17,13 +17,16 @@ CREATE TABLE "transactions" (
 );
 
 -- CreateTable
-CREATE TABLE "sales_splits" (
+CREATE TABLE "sales_split_rules" (
     "id" SERIAL NOT NULL,
     "user_id" TEXT NOT NULL,
-    "rules" JSONB NOT NULL DEFAULT '[]',
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "label" TEXT NOT NULL,
+    "percent" DECIMAL(65,30) NOT NULL,
+    "color" TEXT NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "sales_splits_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "sales_split_rules_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -39,5 +42,4 @@ CREATE INDEX "transactions_category_idx" ON "transactions"("category");
 CREATE INDEX "transactions_user_id_idx" ON "transactions"("user_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "sales_splits_user_id_key" ON "sales_splits"("user_id");
-
+CREATE INDEX "sales_split_rules_user_id_idx" ON "sales_split_rules"("user_id");

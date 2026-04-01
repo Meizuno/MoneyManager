@@ -1,10 +1,11 @@
 <script setup lang="ts">
-const { t, locale, locales, setLocale } = useI18n();
+const { t } = useI18n();
 
 const navLinks = computed(() => [
   { label: t("nav.overview"), to: "/" },
   { label: t("nav.transactions"), to: "/transactions" },
   { label: t("nav.salesSplit"), to: "/sales-split" },
+  { label: t("nav.incomeCategories"), to: "/income-categories" },
 ]);
 
 const { user, logout } = useAuth();
@@ -14,20 +15,6 @@ async function leaveGuest() {
   exitGuest();
   await navigateTo("/login");
 }
-
-const availableLocales = computed(() =>
-  (locales.value as { code: string; flag: string }[])
-);
-
-function cycleLocale() {
-  const codes = availableLocales.value.map((l) => l.code);
-  const next = codes[(codes.indexOf(locale.value) + 1) % codes.length];
-  setLocale(next);
-}
-
-const currentFlag = computed(() =>
-  availableLocales.value.find((l) => l.code === locale.value)?.flag ?? locale.value.toUpperCase()
-);
 
 </script>
 
@@ -58,13 +45,6 @@ const currentFlag = computed(() =>
           >
             {{ link.label }}
           </NuxtLink>
-          <button
-            class="rounded-full border border-white/10 p-1.5 transition hover:border-cyan-400/40"
-            :title="availableLocales.find((l) => l.code === locale)?.name"
-            @click="cycleLocale"
-          >
-            <UIcon :name="currentFlag" class="h-5 w-5" />
-          </button>
           <div class="h-6 w-px bg-white/10"></div>
           <ClientOnly>
             <div v-if="isGuest" class="flex items-center gap-2">

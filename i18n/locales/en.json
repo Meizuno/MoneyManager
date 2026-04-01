@@ -14,7 +14,8 @@
   "nav": {
     "overview": "Overview",
     "transactions": "Transactions",
-    "salesSplit": "Sales Split"
+    "salesSplit": "Sales Split",
+    "incomeCategories": "Income Categories"
   },
   "common": {
     "loading": "Loading",
@@ -96,7 +97,9 @@
     "typeHelp": "Income or expense.",
     "category": "Spending category",
     "categoryHelp": "Pick the closest match.",
-    "addButton": "Add transaction"
+    "categoryPlaceholder": "Select category",
+    "addButton": "Add transaction",
+    "manageCategories": "Manage categories..."
   },
   "salesSplit": {
     "badge": "Planning",
@@ -121,6 +124,16 @@
     "newRule": "New rule",
     "defaultTaxes": "Taxes",
     "defaultSavings": "Savings"
+  },
+  "incomeCategories": {
+    "badge": "Income",
+    "title": "Income categories",
+    "description": "Define custom categories for classifying your income transactions.",
+    "pageTitle": "Income Categories — Money Manager",
+    "addCategory": "Add category",
+    "noCategories": "No categories yet. Add your first category above.",
+    "labelPlaceholder": "e.g. Freelance",
+    "newCategory": "New category"
   },
   "header": {
     "tagline": "Cashflow control"

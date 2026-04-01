@@ -1,31 +1,50 @@
 <script setup lang="ts">
 import { parseDate } from "@internationalized/date";
+import type { SelectItem } from "@nuxt/ui";
 import type { TransactionInput } from "~/types/transaction";
 
-interface SelectItem { label: string; value: string; icon?: string }
+interface CategoryItem {
+  label: string;
+  value: string;
+  icon?: string;
+  chip?: { color: string };
+}
 
 const props = defineProps<{
   typeOptions: SelectItem[];
-  getCategoryOptions: (type: string) => SelectItem[];
+  getCategoryOptions: (type: string) => CategoryItem[];
+  manageCategoriesValue: string;
 }>();
+
+const router = useRouter();
 
 const emit = defineEmits<{
   (event: "submit", payload: TransactionInput): void;
 }>();
 
 const getToday = () => new Date().toISOString().slice(0, 10);
+
+const firstCategory = (type: string) =>
+  props.getCategoryOptions(type).find(o => o.value !== props.manageCategoriesValue)?.value ?? "";
+
 const form = ref({
   date: getToday(),
   name: "",
   amount: null as number | null,
   currency: "CZK",
   type: "expense",
-  category: "rental", // first expense category value
+  category: "",
 });
+
+onMounted(() => {
+  form.value.category = firstCategory(form.value.type);
+});
+
 const formDateOpen = ref(false);
 const isValid = computed(
   () => Boolean(form.value.date) && Boolean(form.value.name) && form.value.amount !== null,
 );
+
 const safeParseDate = (value: string) => {
   try {
     return value ? parseDate(value) : undefined;
@@ -33,6 +52,7 @@ const safeParseDate = (value: string) => {
     return undefined;
   }
 };
+
 const formDateValue = computed({
   get: () => safeParseDate(form.value.date),
   set: (value) => {
@@ -40,10 +60,30 @@ const formDateValue = computed({
   },
 });
 
-const currentCategoryOptions = computed(() => props.getCategoryOptions(form.value.type));
+const currentCategoryOptions = computed<CategoryItem[]>(() => props.getCategoryOptions(form.value.type));
+const currentCategoryOptionsForSelect = computed(() => currentCategoryOptions.value as SelectItem[]);
+
+function getChip(value: string) {
+  return currentCategoryOptions.value.find(o => o.value === value)?.chip;
+}
 
 watch(() => form.value.type, (type) => {
-  form.value.category = props.getCategoryOptions(type)[0]?.value ?? "";
+  form.value.category = firstCategory(type);
+});
+
+watch(currentCategoryOptions, (options) => {
+  const real = options.filter(o => o.value !== props.manageCategoriesValue);
+  const stillValid = real.some(o => o.value === form.value.category);
+  if (!stillValid) {
+    form.value.category = real[0]?.value ?? "";
+  }
+});
+
+watch(() => form.value.category, (val) => {
+  if (val === props.manageCategoriesValue) {
+    form.value.category = currentCategoryOptions.value.find(o => o.value !== props.manageCategoriesValue)?.value ?? "";
+    router.push(form.value.type === "income" ? "/income-categories" : "/sales-split");
+  }
 });
 
 const clearForm = () => {
@@ -54,7 +94,7 @@ const clearForm = () => {
     amount: null,
     currency: "CZK",
     type,
-    category: props.getCategoryOptions(type)[0]?.value ?? "",
+    category: firstCategory(type),
   };
 };
 
@@ -129,10 +169,34 @@ const submitForm = () => {
         <UFormField :label="$t('form.category')" :help="$t('form.categoryHelp')">
           <USelect
             v-model="form.category"
-            :items="currentCategoryOptions"
-            :leading-icon="currentCategoryOptions.find(o => o.value === form.category)?.icon"
+            :items="currentCategoryOptionsForSelect"
+            :placeholder="$t('form.categoryPlaceholder')"
             class="w-full"
-          />
+          >
+            <template #leading="{ modelValue }">
+              <span
+                v-if="modelValue && getChip(modelValue as string)"
+                class="ms-2.5 inline-block h-2 w-2 shrink-0 rounded-full"
+                :style="{ backgroundColor: `var(--color-${getChip(modelValue as string)!.color}-400)` }"
+              />
+            </template>
+            <template #item-leading="{ item }">
+              <span
+                v-if="(item as CategoryItem).chip"
+                class="flex size-4 items-center justify-center"
+              >
+                <span
+                  class="h-2 w-2 rounded-full"
+                  :style="{ backgroundColor: `var(--color-${(item as CategoryItem).chip!.color}-400)` }"
+                />
+              </span>
+              <UIcon
+                v-else-if="(item as CategoryItem).icon"
+                :name="(item as CategoryItem).icon!"
+                class="size-4 shrink-0"
+              />
+            </template>
+          </USelect>
         </UFormField>
       </div>
       <div class="flex flex-wrap items-center gap-2">

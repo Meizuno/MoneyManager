@@ -22,10 +22,9 @@ export default defineNuxtConfig({
   css: ["~/assets/css/main.css"],
 
   i18n: {
-    defaultLocale: "uk",
+    defaultLocale: "en",
     locales: [
-      { code: "uk", language: "uk-UA", name: "Українська", flag: "i-circle-flags-ua", file: "uk.json" },
-      { code: "en", language: "en-US", name: "English", flag: "i-circle-flags-gb", file: "en.json" },
+      { code: "en", language: "en-US", name: "English", file: "en.json" },
     ],
     langDir: "locales",
     strategy: "no_prefix",
