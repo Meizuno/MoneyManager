@@ -18,10 +18,10 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "list_transactions",
     {
-      description: "List transactions with optional filters. Returns an array of transactions for the user.",
+      description: "List transactions with optional filters. For expense transactions, the category field contains the sales split rule id (as a string) — use get_sales_split to resolve ids to labels. For income transactions, the category field contains the income category rule id (as a string) — use get_income_categories to resolve ids to labels.",
       inputSchema: z.object({
         type: z.enum(["income", "expense"]).optional().describe("Filter by type"),
-        category: z.string().optional().describe("Filter by category (sale, interest, rental, food, wishes, car, loan, other)"),
+        category: z.string().optional().describe("Filter by category. For expenses: the sales split rule id (use get_sales_split to find ids). For income: the income category rule id (use get_income_categories to find ids)."),
         dateFrom: z.string().optional().describe("Start date YYYY-MM-DD"),
         dateTo: z.string().optional().describe("End date YYYY-MM-DD"),
       }),
@@ -174,11 +174,14 @@ export default defineEventHandler(async (event) => {
   );
 
   // --- Sales Split tools ---
+  // Sales split rules serve as EXPENSE CATEGORIES. Each rule has a label (the category name),
+  // a percent (how much of income is allocated to it), and an id used as the category value
+  // when creating or filtering expense transactions.
 
   server.registerTool(
     "get_sales_split",
     {
-      description: "Get all income split rules (id, label, percent, color).",
+      description: "Get all expense categories (called sales split rules). Each rule has an id, label, percent, and color. The rule id (as a string) is used as the 'category' value when creating or filtering expense transactions.",
       inputSchema: z.object({}),
     },
     async () => {
@@ -193,10 +196,10 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "add_sales_split_rule",
     {
-      description: "Add a new income split rule. Color is assigned automatically.",
+      description: "Add a new expense category (sales split rule). Color is assigned automatically. The created rule's id becomes the category value for expense transactions.",
       inputSchema: z.object({
-        label: z.string().describe("Name of this allocation (e.g. Taxes, Savings)"),
-        percent: z.number().min(0).max(100).describe("Percentage of income to allocate"),
+        label: z.string().describe("Expense category name (e.g. Taxes, Savings, Rent, Food)"),
+        percent: z.number().min(0).max(100).describe("Percentage of income to allocate to this category"),
       }),
     },
     async ({ label, percent }) => {
@@ -212,9 +215,9 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "update_sales_split_rule",
     {
-      description: "Update label or percent of an existing split rule by id.",
+      description: "Update the label or percent of an expense category (sales split rule) by its id.",
       inputSchema: z.object({
-        id: z.number().int().describe("Rule id"),
+        id: z.number().int().describe("Expense category (rule) id"),
         label: z.string().optional().describe("New label"),
         percent: z.number().min(0).max(100).optional().describe("New percent"),
       }),
@@ -231,8 +234,8 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "remove_sales_split_rule",
     {
-      description: "Remove an income split rule by id.",
-      inputSchema: z.object({ id: z.number().int().describe("Rule id to remove") }),
+      description: "Remove an expense category (sales split rule) by id.",
+      inputSchema: z.object({ id: z.number().int().describe("Expense category (rule) id to remove") }),
     },
     async ({ id }) => {
       await db.salesSplitRule.delete({ where: { id } });
@@ -243,7 +246,7 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "get_sales_split_preview",
     {
-      description: "Show each split rule with its calculated amount based on total income.",
+      description: "Show each expense category (sales split rule) with its calculated allocation amount based on total income. Useful for budget planning.",
       inputSchema: z.object({}),
     },
     async () => {
