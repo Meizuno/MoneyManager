@@ -11,7 +11,7 @@ model Transaction {
   id         Int      @id @default(autoincrement())
   date       DateTime
   name       String
-  amount     Decimal
+  amount     Decimal  @db.Decimal(10, 2)
   currency   String?
   type       String   @default("other")
   category   String   @default("other")
@@ -29,7 +29,7 @@ model SalesSplitRule {
   id         Int      @id @default(autoincrement())
   user_id    String
   label      String
-  percent    Decimal
+  percent    Decimal  @db.Decimal(5, 2)
   color      String
   position   Int      @default(0)
   created_at DateTime @default(now())
