@@ -15,5 +15,5 @@ export type TransactionInput = {
   amount: number | string;
   currency?: string | null;
   type?: string | null;
-  category?: string | null;
+  category?: string | number | null;
 };

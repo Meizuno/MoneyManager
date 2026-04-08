@@ -1,8 +1,16 @@
 import { createError } from "h3";
 
-export const normalizeCategory = (category?: string | null) => {
-  const trimmed = (category ?? "").trim();
-  return trimmed.length > 0 ? trimmed : "other";
+export const normalizeCategory = (category?: string | number | null) => {
+  if (typeof category === "number" && Number.isInteger(category) && category >= 0) {
+    return category;
+  }
+  if (typeof category === "string") {
+    const trimmed = category.trim();
+    if (/^\d+$/.test(trimmed)) {
+      return Number(trimmed);
+    }
+  }
+  return 0;
 };
 
 export const normalizeTransactionInput = (input: TransactionInput) => {

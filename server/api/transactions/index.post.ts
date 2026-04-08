@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
       amount: Number(inserted.amount),
       currency: inserted.currency,
       type: inserted.type,
-      category: inserted.category,
+      category: String(inserted.category),
       created_at: inserted.created_at.toISOString(),
     },
   };

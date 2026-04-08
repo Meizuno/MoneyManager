@@ -14,7 +14,7 @@ model Transaction {
   amount     Decimal  @db.Decimal(10, 2)
   currency   String?
   type       String   @default("other")
-  category   String   @default("other")
+  category   Int      @default(0)
   user_id    String
   created_at DateTime @default(now())
 

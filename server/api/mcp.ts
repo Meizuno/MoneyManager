@@ -8,6 +8,17 @@ const parseDate = (value: string | undefined, endOfDay: boolean) => {
   return new Date(`${value}${suffix}`);
 };
 
+const parseCategoryId = (value: string | number | undefined) => {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  }
+  return 0;
+};
+
 export default defineEventHandler(async (event) => {
   const user = await requireAuthUser(event);
   const userId = user.id;
@@ -18,10 +29,10 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "list_transactions",
     {
-      description: "List transactions with optional filters. For expense transactions, the category field contains the sales split rule id (as a string) — use get_sales_split to resolve ids to labels. For income transactions, the category field contains the income category rule id (as a string) — use get_income_categories to resolve ids to labels.",
+      description: "List transactions with optional filters. Transactions store category as an ID only. For expenses, category is a sales split rule ID; for income, category is an income category ID.",
       inputSchema: z.object({
         type: z.enum(["income", "expense"]).optional().describe("Filter by type"),
-        category: z.string().optional().describe("Filter by category. For expenses: the sales split rule id (use get_sales_split to find ids). For income: the income category rule id (use get_income_categories to find ids)."),
+        category: z.union([z.string(), z.number().int()]).optional().describe("Filter by category ID only. For expenses: sales split rule ID. For income: income category ID."),
         dateFrom: z.string().optional().describe("Start date YYYY-MM-DD"),
         dateTo: z.string().optional().describe("End date YYYY-MM-DD"),
       }),
@@ -29,11 +40,12 @@ export default defineEventHandler(async (event) => {
     async ({ type, category, dateFrom, dateTo }) => {
       const dateFromParsed = parseDate(dateFrom, false);
       const dateToParsed = parseDate(dateTo, true);
+      const categoryId = category === undefined || category === "all" ? null : parseCategoryId(category);
       const items = await db.transaction.findMany({
         where: {
           user_id: userId,
           ...(type ? { type } : {}),
-          ...(category && category !== "all" ? { category } : {}),
+          ...(categoryId !== null ? { category: categoryId } : {}),
           ...((dateFromParsed || dateToParsed) ? {
             date: {
               ...(dateFromParsed ? { gte: dateFromParsed } : {}),
@@ -50,7 +62,7 @@ export default defineEventHandler(async (event) => {
         amount: Number(item.amount),
         currency: item.currency,
         type: item.type,
-        category: item.category,
+        category: String(item.category),
       }));
       return { content: [{ type: "text" as const, text: JSON.stringify(formatted, null, 2) }] };
     },
@@ -80,13 +92,13 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "create_transaction",
     {
-      description: "Create a new income or expense transaction.",
+      description: "Create a new income or expense transaction. The category field accepts category ID only.",
       inputSchema: z.object({
         date: z.string().describe("Date in YYYY-MM-DD format"),
         name: z.string().describe("Transaction description"),
         amount: z.number().positive().describe("Amount as a positive number"),
         type: z.enum(["income", "expense"]).describe("Transaction type"),
-        category: z.string().optional().describe("Category: sale, interest, rental, food, wishes, car, loan, other"),
+        category: z.union([z.string(), z.number().int()]).optional().describe("Category ID only."),
         currency: z.string().optional().describe("3-letter currency code, e.g. CZK, USD, EUR"),
       }),
     },
@@ -97,7 +109,7 @@ export default defineEventHandler(async (event) => {
           name,
           amount: Math.abs(amount),
           type,
-          category: category ?? "other",
+          category: parseCategoryId(category),
           currency: currency ?? null,
           user_id: userId,
         },
@@ -111,7 +123,7 @@ export default defineEventHandler(async (event) => {
             name: item.name,
             amount: Number(item.amount),
             type: item.type,
-            category: item.category,
+            category: String(item.category),
             currency: item.currency,
           }),
         }],
@@ -122,22 +134,23 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "update_transaction",
     {
-      description: "Update fields of an existing transaction by ID.",
+      description: "Update fields of an existing transaction by ID. If category is provided, it must be a category ID.",
       inputSchema: z.object({
         id: z.number().int().describe("Transaction ID"),
         date: z.string().optional().describe("New date YYYY-MM-DD"),
         name: z.string().optional().describe("New description"),
         amount: z.number().positive().optional().describe("New amount (positive)"),
         type: z.enum(["income", "expense"]).optional(),
-        category: z.string().optional(),
+        category: z.union([z.string(), z.number().int()]).optional().describe("Category ID only."),
         currency: z.string().nullable().optional(),
       }),
     },
-    async ({ id, date, amount, ...rest }) => {
+    async ({ id, date, amount, category, ...rest }) => {
       const item = await db.transaction.update({
         where: { id, user_id: userId },
         data: {
           ...rest,
+          ...(category !== undefined ? { category: parseCategoryId(category) } : {}),
           ...(date ? { date: new Date(date) } : {}),
           ...(amount !== undefined ? { amount: Math.abs(amount) } : {}),
         },
@@ -151,7 +164,7 @@ export default defineEventHandler(async (event) => {
             name: item.name,
             amount: Number(item.amount),
             type: item.type,
-            category: item.category,
+            category: String(item.category),
             currency: item.currency,
           }),
         }],
@@ -181,7 +194,7 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "get_sales_split",
     {
-      description: "Get all expense categories (called sales split rules). Each rule has an id, label, percent, and color. The rule id (as a string) is used as the 'category' value when creating or filtering expense transactions.",
+      description: "Get all expense categories (called sales split rules). Each rule has an id, label, percent, and color. Use only the rule ID in transaction.category.",
       inputSchema: z.object({}),
     },
     async () => {
@@ -196,7 +209,7 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "add_sales_split_rule",
     {
-      description: "Add a new expense category (sales split rule). Color is assigned automatically. The created rule's id becomes the category value for expense transactions.",
+      description: "Add a new expense category (sales split rule). Color is assigned automatically. The created rule's ID is what you put into transaction.category.",
       inputSchema: z.object({
         label: z.string().describe("Expense category name (e.g. Taxes, Savings, Rent, Food)"),
         percent: z.number().min(0).max(100).describe("Percentage of income to allocate to this category"),
@@ -281,7 +294,7 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "get_income_categories",
     {
-      description: "Get all income categories (id, label, color).",
+      description: "Get all income categories (id, label, color). Use only category ID in transaction.category.",
       inputSchema: z.object({}),
     },
     async () => {
@@ -296,7 +309,7 @@ export default defineEventHandler(async (event) => {
   server.registerTool(
     "add_income_category",
     {
-      description: "Add a new income category. Color is assigned automatically.",
+      description: "Add a new income category. Color is assigned automatically. The created ID is what you put into transaction.category.",
       inputSchema: z.object({
         label: z.string().describe("Name of this category (e.g. Sale, Freelance, Interest)"),
       }),

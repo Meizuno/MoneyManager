@@ -7,7 +7,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const query = getQuery(event);
-  const category = typeof query.category === "string" ? query.category.trim() : "";
+  const rawCategory = typeof query.category === "string" ? query.category.trim() : "";
+  const parsedCategory =
+    rawCategory && rawCategory !== "all" && /^\d+$/.test(rawCategory)
+      ? Number(rawCategory)
+      : null;
   const type = typeof query.type === "string" ? query.type.trim().toLowerCase() : "";
   const dateFrom = typeof query.dateFrom === "string" ? query.dateFrom.trim() : "";
   const dateTo = typeof query.dateTo === "string" ? query.dateTo.trim() : "";
@@ -25,7 +29,7 @@ export default defineEventHandler(async (event) => {
   const result = await prisma.transaction.findMany({
     where: {
       user_id: user.id,
-      ...(category && category !== "all" ? { category } : {}),
+      ...(parsedCategory !== null ? { category: parsedCategory } : {}),
       ...((dateFromParsed || dateToParsed) && {
         date: {
           ...(dateFromParsed ? { gte: dateFromParsed } : {}),
@@ -45,7 +49,7 @@ export default defineEventHandler(async (event) => {
       amount: Number(item.amount),
       currency: item.currency,
       type: item.type,
-      category: item.category,
+      category: String(item.category),
       created_at: item.created_at.toISOString(),
     })),
   };
