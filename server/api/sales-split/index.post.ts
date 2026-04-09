@@ -11,10 +11,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "percent must be 0–100" });
 
   const prisma = getPrisma();
-  const count = await prisma.salesSplitRule.count({ where: { user_id: user.id } });
+  const count = await prisma.expenseCategory.count({ where: { user_id: user.id } });
   const color = nextColor(count);
 
-  const rule = await prisma.salesSplitRule.create({
+  const rule = await prisma.expenseCategory.create({
     data: { user_id: user.id, label, percent, color, position: count },
   });
   return rule;

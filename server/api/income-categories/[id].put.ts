@@ -10,10 +10,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "nothing to update" });
 
   const prisma = getPrisma();
-  const result = await prisma.incomeCategoryRule.updateMany({
+  const result = await prisma.incomeCategory.updateMany({
     where: { id, user_id: user.id },
     data,
   });
   if (result.count === 0) throw createError({ statusCode: 404, statusMessage: "not found" });
-  return prisma.incomeCategoryRule.findUnique({ where: { id } });
+  return prisma.incomeCategory.findUnique({ where: { id } });
 });

@@ -7,25 +7,39 @@ datasource db {
   url      = env("NUXT_DATABASE_URL")
 }
 
-model Transaction {
+model Income {
   id         Int      @id @default(autoincrement())
   date       DateTime
   name       String
   amount     Decimal  @db.Decimal(10, 2)
   currency   String?
-  type       String   @default("other")
   category   Int      @default(0)
   user_id    String
   created_at DateTime @default(now())
 
   @@index([date])
-  @@index([type])
   @@index([category])
   @@index([user_id])
-  @@map("transactions")
+  @@map("incomes")
 }
 
-model SalesSplitRule {
+model Expense {
+  id         Int      @id @default(autoincrement())
+  date       DateTime
+  name       String
+  amount     Decimal  @db.Decimal(10, 2)
+  currency   String?
+  category   Int      @default(0)
+  user_id    String
+  created_at DateTime @default(now())
+
+  @@index([date])
+  @@index([category])
+  @@index([user_id])
+  @@map("expenses")
+}
+
+model ExpenseCategory {
   id         Int      @id @default(autoincrement())
   user_id    String
   label      String
@@ -35,10 +49,10 @@ model SalesSplitRule {
   created_at DateTime @default(now())
 
   @@index([user_id])
-  @@map("sales_split_rules")
+  @@map("expense_categories")
 }
 
-model IncomeCategoryRule {
+model IncomeCategory {
   id         Int      @id @default(autoincrement())
   user_id    String
   label      String
@@ -47,5 +61,5 @@ model IncomeCategoryRule {
   created_at DateTime @default(now())
 
   @@index([user_id])
-  @@map("income_category_rules")
+  @@map("income_categories")
 }

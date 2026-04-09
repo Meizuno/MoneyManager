@@ -8,17 +8,19 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event);
   const input = normalizeTransactionInput(body ?? {});
   const prisma = getPrisma();
-  const inserted = await prisma.transaction.create({
-    data: {
-      date: new Date(input.date),
-      name: input.name,
-      amount: input.amount,
-      currency: input.currency,
-      type: input.type,
-      category: input.category,
-      user_id: user.id,
-    },
-  });
+
+  const data = {
+    date: new Date(input.date),
+    name: input.name,
+    amount: input.amount,
+    currency: input.currency,
+    category: input.category,
+    user_id: user.id,
+  };
+
+  const inserted = input.type === "income"
+    ? await prisma.income.create({ data })
+    : await prisma.expense.create({ data });
 
   return {
     item: {
@@ -27,7 +29,7 @@ export default defineEventHandler(async (event) => {
       name: inserted.name,
       amount: Number(inserted.amount),
       currency: inserted.currency,
-      type: inserted.type,
+      type: input.type,
       category: String(inserted.category),
       created_at: inserted.created_at.toISOString(),
     },

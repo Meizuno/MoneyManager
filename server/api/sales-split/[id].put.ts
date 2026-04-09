@@ -16,10 +16,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "nothing to update" });
 
   const prisma = getPrisma();
-  const rule = await prisma.salesSplitRule.updateMany({
+  const rule = await prisma.expenseCategory.updateMany({
     where: { id, user_id: user.id },
     data,
   });
   if (rule.count === 0) throw createError({ statusCode: 404, statusMessage: "not found" });
-  return prisma.salesSplitRule.findUnique({ where: { id } });
+  return prisma.expenseCategory.findUnique({ where: { id } });
 });

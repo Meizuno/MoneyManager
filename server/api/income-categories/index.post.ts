@@ -8,9 +8,9 @@ export default defineEventHandler(async (event) => {
   if (!label) throw createError({ statusCode: 400, statusMessage: "label is required" });
 
   const prisma = getPrisma();
-  const count = await prisma.incomeCategoryRule.count({ where: { user_id: user.id } });
+  const count = await prisma.incomeCategory.count({ where: { user_id: user.id } });
 
-  const category = await prisma.incomeCategoryRule.create({
+  const category = await prisma.incomeCategory.create({
     data: { user_id: user.id, label, color: nextColor(count), position: count },
   });
   return category;
