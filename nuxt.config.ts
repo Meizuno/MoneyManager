@@ -31,5 +31,6 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     authServiceUrl: "http://localhost:8080",
+    mcpApiKey: "",
   },
 });
