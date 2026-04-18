@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
       value: Math.round(amount * 100) / 100,
       percent: total > 0 ? Math.round((amount / total) * 100) : 0,
       color: colors[i],
-      transactions: (txByLabel.get(label) ?? []).map(tx => ({ id: tx.id, date: tx.date, name: tx.name, amount: Number(tx.amount) }))
+      transactions: (txByLabel.get(label) ?? []).map(tx => ({ id: tx.id, date: tx.date.toISOString().slice(0, 10), name: tx.name, amount: Number(tx.amount) }))
     }))
   }
 })

@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
       value: Math.round(amount * 100) / 100,
       percent: totalIncome > 0 ? Math.round((amount / totalIncome) * 100) : 0,
       color: incomeColorMap.get(label) ?? '#94a3b8',
-      transactions: (incomeTxByLabel.get(label) ?? []).map(tx => ({ id: tx.id, date: tx.date, name: tx.name, amount: Number(tx.amount) }))
+      transactions: (incomeTxByLabel.get(label) ?? []).map(tx => ({ id: tx.id, date: tx.date.toISOString().slice(0, 10), name: tx.name, amount: Number(tx.amount) }))
     }))
 
   // --- Expenses ---
@@ -84,7 +84,7 @@ export default defineEventHandler(async (event) => {
     value: spent[i],
     percent: percentSpent[i],
     color: expenseCategoryColors[i],
-    transactions: (expenseTxByLabel.get(l) ?? []).map(tx => ({ id: tx.id, date: tx.date, name: tx.name, amount: Number(tx.amount) }))
+    transactions: (expenseTxByLabel.get(l) ?? []).map(tx => ({ id: tx.id, date: tx.date.toISOString().slice(0, 10), name: tx.name, amount: Number(tx.amount) }))
   }))
 
   return {
