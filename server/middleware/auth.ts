@@ -2,7 +2,7 @@ import { getCookie, getHeader } from "h3";
 
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname;
-  if (!path.startsWith("/api/") || path.startsWith("/api/auth/") || path.startsWith("/api/mcp")) return;
+  if (!path.startsWith("/api/") || path.startsWith("/api/auth/") || path.startsWith("/api/mcp") || path.startsWith("/api/prompts/")) return;
 
   const token = getHeader(event, "authorization")?.slice(7) ?? getCookie(event, "mm_access") ?? "";
   const user = await verifyAccessToken(token);
