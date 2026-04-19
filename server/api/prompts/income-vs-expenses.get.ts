@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
       value: Math.round(amount * 100) / 100,
       percent: totalIncome > 0 ? Math.round((amount / totalIncome) * 100) : 0,
       color: incomeColorMap.get(label) ?? '#94a3b8',
-      transactions: (incomeTxByLabel.get(label) ?? []).map(tx => ({ id: tx.id, date: tx.date.toISOString().slice(0, 10), name: tx.name, amount: Number(tx.amount) }))
+      transactions: (incomeTxByLabel.get(label) ?? []).sort((a, b) => b.date.getTime() - a.date.getTime()).map(tx => ({ id: tx.id, date: tx.date.toISOString().slice(0, 10), name: tx.name, amount: Number(tx.amount) }))
     }))
 
   // --- Expenses ---
@@ -58,8 +58,18 @@ export default defineEventHandler(async (event) => {
 
   const expenseMap = new Map<string, number>()
   const expenseTxByLabel = new Map<string, typeof expenseTx>()
+  const foreignTxByCurrency = new Map<string, typeof expenseTx>()
+  const foreignTotals = new Map<string, number>()
+
   for (const tx of expenseTx) {
-    if (tx.currency && tx.currency !== 'CZK') continue
+    if (tx.currency && tx.currency !== 'CZK') {
+      const cur = tx.currency
+      foreignTotals.set(cur, (foreignTotals.get(cur) ?? 0) + Number(tx.amount))
+      const list = foreignTxByCurrency.get(cur) ?? []
+      list.push(tx)
+      foreignTxByCurrency.set(cur, list)
+      continue
+    }
     const cat = expCatById.get(Number(tx.category))
     const label = cat?.label ?? 'Other'
     expenseMap.set(label, (expenseMap.get(label) ?? 0) + Number(tx.amount))
@@ -84,7 +94,7 @@ export default defineEventHandler(async (event) => {
     value: spent[i],
     percent: percentSpent[i],
     color: expenseCategoryColors[i],
-    transactions: (expenseTxByLabel.get(l) ?? []).map(tx => ({ id: tx.id, date: tx.date.toISOString().slice(0, 10), name: tx.name, amount: Number(tx.amount) }))
+    transactions: (expenseTxByLabel.get(l) ?? []).sort((a, b) => b.date.getTime() - a.date.getTime()).map(tx => ({ id: tx.id, date: tx.date.toISOString().slice(0, 10), name: tx.name, amount: Number(tx.amount) }))
   }))
 
   return {
@@ -99,7 +109,21 @@ export default defineEventHandler(async (event) => {
     ],
     legendGroups: [
       { label: 'Expenses', items: expenseLegend },
-      { label: 'Income', items: incomeLegend }
+      { label: 'Income', items: incomeLegend },
+      ...([...foreignTotals.entries()].length ? [{
+        label: 'Other currencies',
+        items: [...foreignTotals.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([currency, amount]) => ({
+            label: currency,
+            value: Math.round(amount * 100) / 100,
+            percent: 0,
+            color: '#94a3b8',
+            transactions: (foreignTxByCurrency.get(currency) ?? [])
+              .sort((a, b) => b.date.getTime() - a.date.getTime())
+              .map(tx => ({ id: tx.id, date: tx.date.toISOString().slice(0, 10), name: tx.name, amount: Number(tx.amount) }))
+          }))
+      }] : [])
     ]
   }
 })
