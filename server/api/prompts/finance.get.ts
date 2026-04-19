@@ -83,6 +83,7 @@ export default defineEventHandler(async (event) => {
   const spent = expenseLabels.map(l => Math.round((expenseMap.get(l) ?? 0) * 100) / 100)
   const percentSpent = expenseLabels.map((_, i) => allocated[i] > 0 ? Math.round((spent[i] / allocated[i]) * 100) : 0)
 
+  const totalAllocatedPercent = expenseCategories.reduce((s, c) => s + Number(c.percent), 0)
   const totalAllocated = allocated.reduce((s, v) => s + Math.round(v * 100), 0) / 100
   const totalSpent = spent.reduce((s, v) => s + Math.round(v * 100), 0) / 100
   const totalPercent = totalAllocated > 0 ? Math.round((totalSpent / totalAllocated) * 100) : 0
@@ -98,9 +99,9 @@ export default defineEventHandler(async (event) => {
   }))
 
   return {
-    title: `Income vs Expenses — ${periodLabel}`,
-    subtitle: `Income: ${totalIncome.toFixed(2)} CZK | Spent: ${totalSpent.toFixed(2)} / ${totalAllocated.toFixed(2)} CZK (${totalPercent}%)`,
-    navigation: { route: '/api/prompts/income-vs-expenses', month, year },
+    title: `Financial overview — ${periodLabel}`,
+    subtitle: `Income: ${totalIncome.toFixed(2)} CZK | Spent: ${totalSpent.toFixed(2)} / ${totalAllocated.toFixed(2)} CZK (${totalPercent}%) | Allocated: ${totalAllocatedPercent}%`,
+    navigation: { route: '/api/prompts/finance', month, year },
     type: 'bar',
     labels: expenseLabels.map((l, i) => `${l} (${percentSpent[i]}%)`),
     datasets: [
