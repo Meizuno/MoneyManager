@@ -93,6 +93,7 @@ export default defineEventHandler(async (event) => {
   const expenseLegend = expenseLabels.map((l, i) => ({
     label: l,
     value: spent[i],
+    allocated: allocated[i],
     percent: percentSpent[i],
     color: expenseCategoryColors[i],
     transactions: (expenseTxByLabel.get(l) ?? []).sort((a, b) => b.date.getTime() - a.date.getTime()).map(tx => ({ id: tx.id, date: tx.date.toISOString().slice(0, 10), name: tx.name, amount: Number(tx.amount) }))
