@@ -1,3 +1,5 @@
+const fmt = (n: number) => n.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 export default defineEventHandler(async (event) => {
   const userId = getPromptUserId(event)
   const db = getPrisma()
@@ -101,7 +103,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     title: `Financial overview — ${periodLabel}`,
-    subtitle: `Income: ${totalIncome.toFixed(2)} CZK | Spent: ${totalSpent.toFixed(2)} / ${totalAllocated.toFixed(2)} CZK (${totalPercent}%) | Allocated: ${totalAllocatedPercent}%`,
+    subtitle: `Income: ${fmt(totalIncome)} CZK | Spent: ${fmt(totalSpent)} / ${fmt(totalAllocated)} CZK (${totalPercent}%) | Allocated: ${totalAllocatedPercent}%`,
     navigation: { route: '/api/prompts/finance', month, year },
     type: 'bar',
     labels: expenseLabels.map((l, i) => `${l} (${percentSpent[i]}%)`),
