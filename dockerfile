@@ -6,27 +6,34 @@ COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
 # Placeholder URL so `prisma generate` can validate the schema without a real DB
 ENV NUXT_DATABASE_URL="postgresql://x:x@x:5432/x"
+# Limit Prisma to the alpine target so we don't drag in binaries for
+# darwin / linux-glibc / windows.
+ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
 RUN pnpm install --frozen-lockfile
 
 COPY . .
 RUN pnpm build
 
-# Strip devDependencies so the runner only carries what's needed at
-# runtime: nuxt's `.output` server, @prisma/client, the prisma CLI
-# (for migrate deploy at startup), and the runtime libs.
-RUN pnpm prune --prod
-
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
+ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
 
+# .output/server is a self-contained Nitro bundle with its own minimal
+# node_modules (including @prisma/client + the engine binary). We do
+# NOT copy the top-level node_modules — most of it is already inlined
+# in .output, so shipping it again would just duplicate.
 COPY --from=builder /app/.output ./.output
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x entrypoint.sh
+
+# Install the prisma CLI globally — one package, one platform's
+# engines, used only for `prisma migrate deploy` on container start.
+# Pin the major to match the @prisma/client baked into .output.
+RUN npm install -g prisma@6 \
+ && npm cache clean --force
 
 EXPOSE 3000
 
