@@ -1,5 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const userId = getPromptUserId(event)
+  const userId = await getPromptUserId(event)
   const db = getPrisma()
 
   const query = getQuery(event)
