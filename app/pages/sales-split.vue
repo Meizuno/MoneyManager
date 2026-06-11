@@ -78,7 +78,7 @@ onMounted(async () => {
 });
 
 // --- Guest helpers ---
-let guestNextId = computed(() => rules.value.reduce((m, r) => Math.max(m, r.id), 0) + 1);
+const guestNextId = computed(() => rules.value.reduce((m, r) => Math.max(m, r.id), 0) + 1);
 const GUEST_COLORS = Object.keys(COLOR_CLASSES);
 function guestNextColor() { return GUEST_COLORS[rules.value.length % GUEST_COLORS.length] as string; }
 function saveGuest() { localStorage.setItem(GUEST_KEY, JSON.stringify(rules.value)); }
@@ -163,7 +163,8 @@ const splitAmount = (percent: number) => (income.value * percent) / 100;
       </UCard>
     </section>
 
-    <UAlert v-if="overLimit" color="error" variant="subtle" class="glass-card"
+    <UAlert
+v-if="overLimit" color="error" variant="subtle" class="glass-card"
       :title="$t('salesSplit.overLimitTitle')" :description="$t('salesSplit.overLimitDesc')" />
 
     <!-- Rules -->
@@ -180,7 +181,8 @@ const splitAmount = (percent: number) => (income.value * percent) / 100;
       </div>
 
       <div v-else class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <div v-for="rule in rules" :key="rule.id"
+        <div
+v-for="rule in rules" :key="rule.id"
           class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5">
           <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" :class="colorOf(rule).bar" />
           <input
@@ -189,18 +191,19 @@ const splitAmount = (percent: number) => (income.value * percent) / 100;
             class="min-w-0 flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
             :placeholder="$t('salesSplit.labelPlaceholder')"
             @input="onInput(rule)"
-          />
+          >
           <input
             v-model.number="rule.percent"
             type="number" min="0" max="100" step="1"
             class="w-14 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-white outline-none focus:border-cyan-400/50"
             @input="onInput(rule)"
-          />
+          >
           <span class="text-xs text-slate-400">%</span>
           <span :class="['text-sm font-semibold', colorOf(rule).text]">
             {{ formatAmount(splitAmount(rule.percent)) }}
           </span>
-          <UButton icon="i-heroicons-trash" color="error" variant="ghost" size="xs"
+          <UButton
+icon="i-heroicons-trash" color="error" variant="ghost" size="xs"
             :aria-label="$t('common.delete')" @click="removeRule(rule.id)" />
         </div>
       </div>

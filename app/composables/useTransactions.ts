@@ -67,7 +67,10 @@ export const useTransactions = () => {
         { label: t("form.manageCategories"), value: MANAGE_CATEGORIES_VALUE, icon: "i-heroicons-cog-6-tooth" },
       ];
     }
-    const values = categoryValuesByType[type] ?? categoryValuesByType.income;
+    // Hard-default to an empty array — both lookups are typed as
+    // `string[] | undefined` under noUncheckedIndexedAccess, so the
+    // `??` chain alone can't statically narrow to `string[]`.
+    const values: string[] = categoryValuesByType[type] ?? categoryValuesByType.income ?? [];
     return values.map((v) => ({ label: t(`categories.${v}`), value: v, icon: categoryIconMap[v] }));
   };
 
@@ -303,8 +306,13 @@ export const useTransactions = () => {
     resetMessages();
     try {
       if (isGuest.value) {
-        const items = loadGuestTransactions().map((t) =>
-          t.id === id ? { ...t, ...input } : t
+        // The merge produces an `amount: number | string` (input is the
+        // pre-validation payload). Same `as Transaction` cast the create
+        // path already uses — guest-mode data is local-only and the
+        // form's isValid guard ensures the value is a real number in
+        // practice.
+        const items = loadGuestTransactions().map((t): Transaction =>
+          t.id === id ? ({ ...t, ...input } as Transaction) : t
         );
         saveGuestTransactions(items);
         transactions.value = items;

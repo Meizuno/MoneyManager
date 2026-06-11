@@ -98,17 +98,17 @@ useHead({ title: t("transactions.pageTitle") });
         />
       </div>
       <TransactionList
+        v-model:filter-category="filterCategory"
+        v-model:filter-type="filterType"
+        v-model:filter-date-from="filterDateFrom"
+        v-model:filter-date-to="filterDateTo"
+        v-model:filter-date-preset="filterDatePreset"
         :transactions="transactions"
         :type-options="typeOptions"
         :get-category-options="getCategoryOptions"
         :categories="categories"
         :types="types"
         :date-preset-options="datePresetOptions"
-        v-model:filter-category="filterCategory"
-        v-model:filter-type="filterType"
-        v-model:filter-date-from="filterDateFrom"
-        v-model:filter-date-to="filterDateTo"
-        v-model:filter-date-preset="filterDatePreset"
         :format-amount="formatAmount"
         @update="handleUpdate"
         @delete="handleDelete"

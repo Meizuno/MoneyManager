@@ -2,7 +2,7 @@
 const { t } = useI18n();
 useHead({ title: t("incomeCategories.pageTitle") });
 
-const { formatAmount, totals, loadTransactions, incomeCategories } = useTransactions();
+const { loadTransactions, incomeCategories } = useTransactions();
 const { loggedIn, apiFetch } = useAuth();
 const { isGuest } = useGuest();
 await loadTransactions();
@@ -62,7 +62,7 @@ function loadFromStorage(): Category[] {
 }
 
 const GUEST_COLORS = Object.keys(COLOR_CLASSES);
-let guestNextId = computed(() => categories.value.reduce((m, c) => Math.max(m, c.id), 0) + 1);
+const guestNextId = computed(() => categories.value.reduce((m, c) => Math.max(m, c.id), 0) + 1);
 function guestNextColor() { return GUEST_COLORS[categories.value.length % GUEST_COLORS.length] as string; }
 function saveGuest() { localStorage.setItem(GUEST_KEY, JSON.stringify(categories.value)); }
 
@@ -116,7 +116,6 @@ async function removeCategory(id: number) {
   categories.value = categories.value.filter((c) => c.id !== id);
 }
 
-const income = computed(() => totals.value.income);
 </script>
 
 <template>
@@ -145,7 +144,8 @@ const income = computed(() => totals.value.income);
       </div>
 
       <div v-else class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <div v-for="cat in categories" :key="cat.id"
+        <div
+v-for="cat in categories" :key="cat.id"
           class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5">
           <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" :class="colorOf(cat).bar" />
           <input
@@ -154,8 +154,9 @@ const income = computed(() => totals.value.income);
             class="min-w-0 flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
             :placeholder="$t('incomeCategories.labelPlaceholder')"
             @input="onInput(cat)"
-          />
-          <UButton icon="i-heroicons-trash" color="error" variant="ghost" size="xs"
+          >
+          <UButton
+icon="i-heroicons-trash" color="error" variant="ghost" size="xs"
             :aria-label="$t('common.delete')" @click="removeCategory(cat.id)" />
         </div>
       </div>
