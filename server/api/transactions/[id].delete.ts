@@ -1,17 +1,10 @@
-import { createError, getRouterParam } from "h3";
-import { getPrisma } from "../../utils/db";
-import { requireAuthUser } from "../../utils/auth";
+import { getRouterParam } from 'h3'
 
 export default defineEventHandler(async (event) => {
-  const user = await requireAuthUser(event);
-  const id = Number(getRouterParam(event, "id"));
-  const prisma = getPrisma();
-
-  const deletedIncome = await prisma.income.deleteMany({ where: { id, user_id: user.id } });
-  if (deletedIncome.count > 0) return { ok: true };
-
-  const deletedExpense = await prisma.expense.deleteMany({ where: { id, user_id: user.id } });
-  if (deletedExpense.count > 0) return { ok: true };
-
-  throw createError({ statusCode: 404, statusMessage: "Transaction not found." });
-});
+  const id = Number(getRouterParam(event, 'id'))
+  if (!Number.isInteger(id) || id <= 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid transaction id' })
+  }
+  await deleteTransaction(event, id)
+  return { ok: true }
+})
