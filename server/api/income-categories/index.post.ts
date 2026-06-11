@@ -1,17 +1,6 @@
-import { nextColor } from "../../utils/salesSplitColors";
+import { createIncomeCategorySchema } from '#shared/schemas/income-category'
 
 export default defineEventHandler(async (event) => {
-  const user = await requireAuthUser(event);
-  const body = await readBody(event);
-
-  const label = typeof body?.label === "string" ? body.label.trim() : "";
-  if (!label) throw createError({ statusCode: 400, statusMessage: "label is required" });
-
-  const prisma = getPrisma();
-  const count = await prisma.incomeCategory.count({ where: { user_id: user.id } });
-
-  const category = await prisma.incomeCategory.create({
-    data: { user_id: user.id, label, color: nextColor(count), position: count },
-  });
-  return category;
-});
+  const input = await readValidatedBody(event, createIncomeCategorySchema.parse)
+  return createIncomeCategory(event, input)
+})
