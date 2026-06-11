@@ -26,11 +26,17 @@ const emit = defineEmits<{
   (event: "update", payload: { id: number; input: CreateTransactionPayload }): void;
   (event: "delete", id: number): void;
   (event: "focus-form"): void;
-  (event: "update:filterCategory", value: string): void;
-  (event: "update:filterType", value: string): void;
-  (event: "update:filterDateFrom", value: string): void;
-  (event: "update:filterDateTo", value: string): void;
-  (event: "update:filterDatePreset", value: string): void;
+  // Combined v-model:filter* writers — keeping them as one overload
+  // keeps eslint's @typescript-eslint/unified-signatures happy.
+  (
+    event:
+      | "update:filterCategory"
+      | "update:filterType"
+      | "update:filterDateFrom"
+      | "update:filterDateTo"
+      | "update:filterDatePreset",
+    value: string
+  ): void;
 }>();
 
 const editingId = ref<number | null>(null);
@@ -205,8 +211,12 @@ const submitEdit = (id: number) => {
       </div>
     </div>
     <div class="mt-4 space-y-3">
+      <!-- v-if hoisted to a wrapping <template> so v-for and v-if
+           live on different elements (lint flag `vue/no-use-v-if-with-v-for`).
+           The empty-state <UCard v-else> just after the </template>
+           is reached via Vue's cross-element v-if/v-else linkage. -->
+      <template v-if="hasTransactions">
       <UCard
-        v-if="hasTransactions"
         v-for="item in transactions"
         :key="item.id"
         class="surface-panel"
@@ -308,6 +318,7 @@ const submitEdit = (id: number) => {
           </div>
         </template>
       </UCard>
+      </template>
       <UCard v-else class="surface-panel border border-dashed border-white/10">
         <div class="flex flex-col items-start gap-3">
           <div>

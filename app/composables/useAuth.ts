@@ -36,8 +36,12 @@ export const useAuth = () => {
   const apiFetch = async <T>(url: string, options: Parameters<typeof $fetch>[1] = {}) => {
     try {
       return await $fetch<T>(url, options);
-    } catch (error: any) {
-      const status = error?.statusCode ?? error?.status ?? 0;
+    }
+    catch (error: unknown) {
+      // $fetch errors carry `statusCode` / `status` depending on path;
+      // narrow defensively without losing the rethrow.
+      const e = error as { statusCode?: number; status?: number } | null;
+      const status = e?.statusCode ?? e?.status ?? 0;
       if (status === 401) {
         user.value = null;
         await navigateTo("/login");

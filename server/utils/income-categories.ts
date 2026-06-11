@@ -1,8 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import type {
   CreateIncomeCategoryInput,
-  IncomeCategory,
-  UpdateIncomeCategoryInput
+  IncomeCategory
 } from '#shared/schemas/income-category'
 import { getPrisma } from './db'
 import { IncomeCategoryNotFound } from './errors'

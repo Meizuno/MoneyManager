@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { parseDate } from "@internationalized/date";
+// `SelectItem` is kept (rather than re-typing) only for the cast that
+// hands `currentCategoryOptions` to `<USelect :items>` further below —
+// USelect's items prop is typed against the union and CategoryItem
+// satisfies its object branch.
 import type { SelectItem } from "@nuxt/ui";
 // Pre-validation shape — the form holds string-y amounts / category
 // ids until the server's zod schema coerces them. `CreateTransactionPayload`
@@ -14,8 +18,18 @@ interface CategoryItem {
   chip?: { color: string };
 }
 
+// Narrower than @nuxt/ui's exported `SelectItem` (which is a union
+// allowing raw primitives). Our typeOptions are always object-shaped
+// with `label` + `value` + optional `icon`, so use this instead and
+// avoid the per-access `.value` narrowing dance.
+interface TypeOption {
+  label: string;
+  value: string;
+  icon?: string;
+}
+
 const props = defineProps<{
-  typeOptions: SelectItem[];
+  typeOptions: TypeOption[];
   getCategoryOptions: (type: string) => CategoryItem[];
   manageCategoriesValue: string;
 }>();
