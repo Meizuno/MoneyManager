@@ -63,13 +63,21 @@ export const createTransactionSchema = z.object({
   type: transactionTypeSchema.optional(),
   category: categorySchema.optional()
 })
+// Post-validation type — what the service receives (numbers are
+// already coerced, strings already trimmed). Use server-side.
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>
+// Pre-validation type — what the client builds before sending. The
+// form's amount input is `number | string`, the category select gives
+// us numeric strings, etc. Use client-side when typing emits/refs that
+// haven't yet been through the schema.
+export type CreateTransactionPayload = z.input<typeof createTransactionSchema>
 
 // PUT /api/transactions/[id]. Same shape as create but every field
 // optional: only the keys present in the body are written. Type
 // changes move the row between the income/expense tables.
 export const updateTransactionSchema = createTransactionSchema.partial()
 export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>
+export type UpdateTransactionPayload = z.input<typeof updateTransactionSchema>
 
 // GET /api/transactions — filter params, all optional. Query values
 // arrive as strings so anything numeric coerces; `category=all` (or

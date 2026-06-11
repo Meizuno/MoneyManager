@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { parseDate } from "@internationalized/date";
 import type { SelectItem } from "@nuxt/ui";
-import type { TransactionInput } from "~/types/transaction";
+// Pre-validation shape — the form holds string-y amounts / category
+// ids until the server's zod schema coerces them. `CreateTransactionPayload`
+// is `z.input<typeof createTransactionSchema>`; the matching post-validation
+// `CreateTransactionInput` lives on the server side.
+import type { CreateTransactionPayload } from "#shared/schemas/transaction";
 
 interface CategoryItem {
   label: string;
@@ -19,7 +23,7 @@ const props = defineProps<{
 const router = useRouter();
 
 const emit = defineEmits<{
-  (event: "submit", payload: TransactionInput): void;
+  (event: "submit", payload: CreateTransactionPayload): void;
 }>();
 
 const getToday = () => new Date().toISOString().slice(0, 10);
@@ -100,13 +104,16 @@ const clearForm = () => {
 
 const submitForm = () => {
   if (!isValid.value) return;
+  // The `as` on `type` is safe because the select is bound to a
+  // closed two-option list (`income` | `expense`); the form ref is
+  // typed `string` only because Vue's ref inference widens.
   emit("submit", {
     date: form.value.date,
     name: form.value.name,
     amount: form.value.amount ?? "",
     currency: form.value.currency,
-    type: form.value.type || "other",
-    category: form.value.category || "other",
+    type: form.value.type as "income" | "expense",
+    category: form.value.category || undefined,
   });
   clearForm();
 };

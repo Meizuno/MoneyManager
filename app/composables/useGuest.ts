@@ -1,3 +1,5 @@
+import type { Transaction } from "#shared/schemas/transaction";
+
 const GUEST_KEY = "mm_guest";
 const TX_KEY = "mm_guest_transactions";
 
