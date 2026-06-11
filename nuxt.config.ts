@@ -33,4 +33,14 @@ export default defineNuxtConfig({
     authServiceUrl: "http://localhost:8080",
     mcpApiKey: "",
   },
+
+  // Auto-import server-side use-case functions from server/services
+  // alongside the default server/utils. Keeps "services/" expressive
+  // as the layer name while preserving the same auto-import ergonomics
+  // every other server module enjoys.
+  nitro: {
+    imports: {
+      dirs: ["server/services"],
+    },
+  },
 });
