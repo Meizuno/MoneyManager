@@ -7,6 +7,10 @@
 		"dev": "nuxt dev",
 		"generate": "nuxt generate",
 		"preview": "nuxt preview",
+		"typecheck": "nuxt typecheck",
+		"lint": "eslint .",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"postinstall": "nuxt prepare && prisma generate",
 		"prisma:generate": "prisma generate",
 		"prisma:migrate": "prisma migrate dev"
@@ -23,10 +27,18 @@
 	},
 	"devDependencies": {
 		"@iconify-json/circle-flags": "^1.2.10",
+		"@nuxt/eslint": "^1.15.2",
+		"@nuxt/test-utils": "^4.0.3",
 		"@types/node": "^25.2.2",
+		"@vue/test-utils": "^2.4.11",
+		"eslint": "^10.4.1",
+		"happy-dom": "^20.10.1",
 		"nitropack": "^2.13.1",
 		"prisma": "^6.5.0",
-		"tailwindcss": "^4.1.18"
+		"tailwindcss": "^4.1.18",
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.8",
+		"vue-tsc": "^3.3.3"
 	},
 	"packageManager": "pnpm@10.7.1",
 	"pnpm": {

@@ -18,7 +18,7 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ["@nuxt/ui", "@nuxtjs/i18n"],
+  modules: ["@nuxt/ui", "@nuxtjs/i18n", "@nuxt/eslint"],
   css: ["~/assets/css/main.css"],
 
   i18n: {
