@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { parseDate } from "@internationalized/date";
+// Wire-shape `Transaction` and pre-validation `CreateTransactionPayload`
+// from the canonical schemas. `Transaction` was previously auto-imported
+// from shared/types/; importing explicitly here documents the dependency.
+import type { Transaction, CreateTransactionPayload } from "#shared/schemas/transaction";
 
 interface SelectItem { label: string; value: string; icon?: string }
 
@@ -19,7 +23,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (event: "update", payload: { id: number; input: TransactionInput }): void;
+  (event: "update", payload: { id: number; input: CreateTransactionPayload }): void;
   (event: "delete", id: number): void;
   (event: "focus-form"): void;
   (event: "update:filterCategory", value: string): void;
@@ -116,8 +120,8 @@ const submitEdit = (id: number) => {
       name: editItem.value.name,
       amount: editItem.value.amount ?? "",
       currency: editItem.value.currency,
-      type: editItem.value.type || "other",
-      category: editItem.value.category || "other",
+      type: editItem.value.type as "income" | "expense",
+      category: editItem.value.category || undefined,
     },
   });
   editingId.value = null;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TransactionInput } from "~/types/transaction";
+import type { CreateTransactionPayload } from "#shared/schemas/transaction";
 
 const {
   transactions,
@@ -30,11 +30,11 @@ watch([filterCategory, filterType, filterDateFrom, filterDateTo], () => {
   loadTransactions({ force: true });
 });
 
-const handleCreate = async (payload: TransactionInput) => {
+const handleCreate = async (payload: CreateTransactionPayload) => {
   await createTransaction(payload);
 };
 
-const handleUpdate = async (payload: { id: number; input: TransactionInput }) => {
+const handleUpdate = async (payload: { id: number; input: CreateTransactionPayload }) => {
   await updateTransaction(payload.id, payload.input);
 };
 

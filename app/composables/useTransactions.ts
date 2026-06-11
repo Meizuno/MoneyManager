@@ -1,3 +1,5 @@
+import type { Transaction, CreateTransactionPayload } from "#shared/schemas/transaction";
+
 export const useTransactions = () => {
   const { t } = useI18n();
   const { isGuest, loadGuestTransactions, saveGuestTransactions } = useGuest();
@@ -276,7 +278,7 @@ export const useTransactions = () => {
     }
   };
 
-  const createTransaction = async (input: TransactionInput) => {
+  const createTransaction = async (input: CreateTransactionPayload) => {
     resetMessages();
     try {
       if (isGuest.value) {
@@ -297,7 +299,7 @@ export const useTransactions = () => {
     }
   };
 
-  const updateTransaction = async (id: number, input: TransactionInput) => {
+  const updateTransaction = async (id: number, input: CreateTransactionPayload) => {
     resetMessages();
     try {
       if (isGuest.value) {
