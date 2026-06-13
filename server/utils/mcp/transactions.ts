@@ -7,6 +7,7 @@ import {
   listTransactionsScoped,
   updateTransactionScoped
 } from '../transactions'
+import { InvalidCategoryInput } from '../errors'
 import { optStr, optCategoryId, toJson } from './helpers'
 
 // MCP tools for the Transaction resource. All persistence flows
@@ -19,11 +20,24 @@ import { optStr, optCategoryId, toJson } from './helpers'
 // optCategoryId's transform yields `string | number | undefined`, but
 // the scoped helpers expect a `number | undefined`. Collapse here at
 // the boundary so the downstream signature stays clean.
-function toCategoryId(v: string | number | undefined): number | undefined {
+//
+// Reject anything that isn't a non-negative integer id instead of
+// silently coercing it to 0 (uncategorised). The old coercion hid the
+// model's mistakes — passing a category NAME like "Food" looked like a
+// success but landed in the wrong bucket. Now: empty/omitted →
+// undefined (the caller maps that to 0); a valid integer → that integer
+// (rule-1 existence check runs downstream); anything else → a tool
+// error the model must fix by fetching a real id.
+export function toCategoryId(v: string | number | undefined): number | undefined {
   if (v === undefined) return undefined
-  if (typeof v === 'number') return Number.isInteger(v) && v >= 0 ? v : 0
+  if (typeof v === 'number') {
+    if (Number.isInteger(v) && v >= 0) return v
+    throw new InvalidCategoryInput()
+  }
   const t = v.trim()
-  return /^\d+$/.test(t) ? Number(t) : 0
+  if (t === '') return undefined
+  if (/^\d+$/.test(t)) return Number(t)
+  throw new InvalidCategoryInput()
 }
 
 export function registerTransactionTools(server: McpServer, db: PrismaClient, userId: string) {

@@ -42,6 +42,19 @@ export async function listExpenseCategoriesScoped(viewerId: string): Promise<Exp
   return rows.map(toExpenseCategory)
 }
 
+// Scoped existence check used by the transaction layer to validate a
+// supplied category id before writing. Returns true only when a row with
+// this id belongs to the viewer — the user_id filter keeps a stranger's
+// id from validating against this user's transactions. Caller owns the
+// "0 = uncategorised" sentinel; this is a pure row-exists probe.
+export async function expenseCategoryExists(viewerId: string, id: number): Promise<boolean> {
+  const row = await getPrisma().expenseCategory.findFirst({
+    where: { id, user_id: viewerId },
+    select: { id: true }
+  })
+  return row !== null
+}
+
 export async function createExpenseCategoryScoped(
   viewerId: string,
   input: CreateExpenseCategoryInput

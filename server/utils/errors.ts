@@ -1,4 +1,5 @@
 import { H3Error } from 'h3'
+import type { TransactionType } from '#shared/schemas/transaction'
 
 // Domain error taxonomy. Services throw these instead of sprinkling
 // createError({ statusCode }) through the business logic; each error
@@ -47,5 +48,36 @@ export class IncomeCategoryNotFound extends DomainError {
 export class ExpenseCategoryNotFound extends DomainError {
   constructor(id?: number | string) {
     super(404, 'Expense category not found', id ? `Expense category ${id} not found` : undefined)
+  }
+}
+
+// 400 — a transaction write referenced a category id that doesn't exist
+// for this user under the resolved transaction type. Distinct from the
+// *CategoryNotFound 404s above (which are about category CRUD): here the
+// category is a foreign-key reference on a transaction, so a bad value is
+// invalid input, not a missing resource. The message names the right tool
+// so an MCP caller can recover by fetching a real id.
+export class CategoryNotFound extends DomainError {
+  constructor(type: TransactionType, id: number | string) {
+    const tool = type === 'expense' ? 'get_expense_categories' : 'get_income_categories'
+    super(
+      400,
+      'Category not found',
+      `${type === 'expense' ? 'Expense' : 'Income'} category ${id} does not exist. Fetch a valid id via ${tool}.`
+    )
+  }
+}
+
+// 400 — category input that isn't a numeric id reached the MCP boundary
+// (e.g. the model passed a category NAME like "Food"). Rejected loudly
+// rather than silently coerced to 0, so the mistake surfaces as a tool
+// error the model must correct.
+export class InvalidCategoryInput extends DomainError {
+  constructor() {
+    super(
+      400,
+      'Invalid category',
+      'category must be a numeric id from get_expense_categories / get_income_categories'
+    )
   }
 }

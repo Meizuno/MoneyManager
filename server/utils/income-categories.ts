@@ -36,6 +36,18 @@ export async function listIncomeCategoriesScoped(viewerId: string): Promise<Inco
   return rows.map(toIncomeCategory)
 }
 
+// Scoped existence check used by the transaction layer to validate a
+// supplied category id before writing. Mirrors expenseCategoryExists —
+// the user_id filter keeps a stranger's id from validating against this
+// user's transactions. Caller owns the "0 = uncategorised" sentinel.
+export async function incomeCategoryExists(viewerId: string, id: number): Promise<boolean> {
+  const row = await getPrisma().incomeCategory.findFirst({
+    where: { id, user_id: viewerId },
+    select: { id: true }
+  })
+  return row !== null
+}
+
 // Append a new category to the end of the user's list, picking the
 // next palette colour. Position is intentionally the current count so
 // the new entry shows up after every existing one.

@@ -20,7 +20,16 @@ import { toJson, optStr } from './helpers'
 // no user_id filter — any caller knowing an id could overwrite or
 // delete another user's category. Routing through the scoped utils
 // closes that hole atomically.
-export function registerExpenseCategoryTools(server: McpServer, db: PrismaClient, userId: string) {
+// `allowMutations` gates the category-MUTATING tools (add/update/remove).
+// When false (the default), only the read tools are registered — the chat
+// model can reference category ids on transactions but can't create,
+// rename, or delete categories. See runtimeConfig.mcpAllowCategoryMutations.
+export function registerExpenseCategoryTools(
+  server: McpServer,
+  db: PrismaClient,
+  userId: string,
+  allowMutations = false
+) {
   server.registerTool(
     'get_expense_categories',
     {
@@ -32,6 +41,40 @@ export function registerExpenseCategoryTools(server: McpServer, db: PrismaClient
       return toJson(categories)
     }
   )
+
+  server.registerTool(
+    'get_expense_category_preview',
+    {
+      description: 'Show each expense category with its budget allocation amount calculated from total income. Returns totalIncome, totalAllocatedPercent, unallocatedPercent, unallocatedAmount, and a breakdown per category. No parameters required.',
+      inputSchema: z.object({})
+    },
+    async () => {
+      // Cross-resource aggregation (incomes × categories). No HTTP
+      // analog and no other caller, so kept inline rather than
+      // forcing a dedicated service.
+      const [incomes, categories] = await Promise.all([
+        db.income.findMany({ where: { user_id: userId } }),
+        db.expenseCategory.findMany({ where: { user_id: userId }, orderBy: [{ position: 'asc' }, { id: 'asc' }] })
+      ])
+      const totalIncome = incomes.reduce((sum, i) => sum + Math.abs(Number(i.amount)), 0)
+      const totalPercent = categories.reduce((s, c) => s + Number(c.percent), 0)
+      return toJson({
+        totalIncome,
+        totalAllocatedPercent: totalPercent,
+        unallocatedPercent: Math.max(0, 100 - totalPercent),
+        unallocatedAmount: (totalIncome * Math.max(0, 100 - totalPercent)) / 100,
+        categories: categories.map(c => ({
+          id: c.id,
+          label: c.label,
+          percent: Number(c.percent),
+          amount: (totalIncome * Number(c.percent)) / 100
+        }))
+      })
+    }
+  )
+
+  // Everything below mutates category data — only register when allowed.
+  if (!allowMutations) return
 
   server.registerTool(
     'add_expense_category',
@@ -81,37 +124,6 @@ Optional: label, percent — only provided fields are updated, the rest stay unc
     async ({ id }) => {
       const result = await deleteExpenseCategoryScoped(userId, id)
       return toJson(result)
-    }
-  )
-
-  server.registerTool(
-    'get_expense_category_preview',
-    {
-      description: 'Show each expense category with its budget allocation amount calculated from total income. Returns totalIncome, totalAllocatedPercent, unallocatedPercent, unallocatedAmount, and a breakdown per category. No parameters required.',
-      inputSchema: z.object({})
-    },
-    async () => {
-      // Cross-resource aggregation (incomes × categories). No HTTP
-      // analog and no other caller, so kept inline rather than
-      // forcing a dedicated service.
-      const [incomes, categories] = await Promise.all([
-        db.income.findMany({ where: { user_id: userId } }),
-        db.expenseCategory.findMany({ where: { user_id: userId }, orderBy: [{ position: 'asc' }, { id: 'asc' }] })
-      ])
-      const totalIncome = incomes.reduce((sum, i) => sum + Math.abs(Number(i.amount)), 0)
-      const totalPercent = categories.reduce((s, c) => s + Number(c.percent), 0)
-      return toJson({
-        totalIncome,
-        totalAllocatedPercent: totalPercent,
-        unallocatedPercent: Math.max(0, 100 - totalPercent),
-        unallocatedAmount: (totalIncome * Math.max(0, 100 - totalPercent)) / 100,
-        categories: categories.map(c => ({
-          id: c.id,
-          label: c.label,
-          percent: Number(c.percent),
-          amount: (totalIncome * Number(c.percent)) / 100
-        }))
-      })
     }
   )
 }
