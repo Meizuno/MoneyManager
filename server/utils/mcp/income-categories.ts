@@ -15,7 +15,15 @@ import { toJson } from './helpers'
 // IncomeCategoryNotFound exist in exactly one place.
 // `db` is no longer touched here; kept in the signature so the
 // registration call site in api/mcp.ts doesn't change.
-export function registerIncomeCategoryTools(server: McpServer, _db: PrismaClient, userId: string) {
+// `allowMutations` gates the category-MUTATING tools (add/update/remove).
+// When false (the default), only the read tool is registered. See
+// runtimeConfig.mcpAllowCategoryMutations and the expense-category twin.
+export function registerIncomeCategoryTools(
+  server: McpServer,
+  _db: PrismaClient,
+  userId: string,
+  allowMutations = false
+) {
   server.registerTool(
     'get_income_categories',
     {
@@ -27,6 +35,9 @@ export function registerIncomeCategoryTools(server: McpServer, _db: PrismaClient
       return toJson(categories)
     }
   )
+
+  // Everything below mutates category data — only register when allowed.
+  if (!allowMutations) return
 
   server.registerTool(
     'add_income_category',

@@ -7,7 +7,9 @@ import type {
   UpdateTransactionInput
 } from '#shared/schemas/transaction'
 import { getPrisma } from './db'
-import { TransactionNotFound } from './errors'
+import { CategoryNotFound, TransactionNotFound } from './errors'
+import { expenseCategoryExists } from './expense-categories'
+import { incomeCategoryExists } from './income-categories'
 
 // Single home for transaction data-access. Income and Expense live in
 // separate Prisma tables but are one logical resource over HTTP/MCP/
@@ -58,6 +60,25 @@ function rowDataFromInput(input: CreateTransactionInput | UpdateTransactionInput
     ...(input.currency !== undefined ? { currency: input.currency } : {}),
     ...(input.category !== undefined ? { category: input.category } : {})
   }
+}
+
+// Enforce category integrity before a write: the supplied category must
+// belong to the viewer AND live in the table matching the resolved
+// transaction type (expense → expense_categories, income →
+// income_categories). Category 0 is the explicit "uncategorised"
+// sentinel and never needs a row. Anything else that doesn't resolve is
+// a CategoryNotFound — the only guardrail used to be prompt text, so a
+// bad id (or one valid only for the other type) could be persisted.
+async function assertCategoryValid(
+  viewerId: string,
+  type: TransactionType,
+  category: number
+): Promise<void> {
+  if (category === 0) return
+  const exists = type === 'expense'
+    ? await expenseCategoryExists(viewerId, category)
+    : await incomeCategoryExists(viewerId, category)
+  if (!exists) throw new CategoryNotFound(type, category)
 }
 
 // Derive transaction type when the caller omitted it: negative amount
@@ -121,13 +142,15 @@ export async function createTransactionScoped(
   input: CreateTransactionInput
 ): Promise<Transaction> {
   const type = deriveType(input)
+  const category = input.category ?? 0
+  await assertCategoryValid(viewerId, type, category)
   const data = {
     user_id: viewerId,
     date: new Date(input.date),
     name: input.name,
     amount: Math.abs(input.amount),
     currency: input.currency ?? null,
-    category: input.category ?? 0
+    category
   }
   const db = getPrisma()
   const row = type === 'income'
@@ -164,6 +187,18 @@ export async function updateTransactionScoped(
 
   // Type swap target: explicit override wins; otherwise stay where we are.
   const nextType: TransactionType = input.type ?? existing.type
+
+  // Validate the category that will actually be persisted against the
+  // resolved (possibly new) type. We re-check whenever the caller sends a
+  // category OR the type changes — because an id valid under the old type
+  // need not exist under the new type's table, even if the id itself is
+  // unchanged. A no-op update (no category, no type change) skips the
+  // probe: that row's category was already validated when it was written.
+  const effectiveCategory = input.category ?? existing.row.category
+  if (input.category !== undefined || nextType !== existing.type) {
+    await assertCategoryValid(viewerId, nextType, effectiveCategory)
+  }
+
   const data = rowDataFromInput(input)
   const db = getPrisma()
 

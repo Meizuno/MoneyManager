@@ -33,9 +33,14 @@ export default defineEventHandler(async (event) => {
   const db = getPrisma()
   const server = new McpServer({ name: 'money-manager', version: '1.0.0' })
 
+  // Category-mutating tools are off unless explicitly enabled — the
+  // server, not a prompt note, decides whether the model may create or
+  // delete categories.
+  const allowCategoryMutations = config.mcpAllowCategoryMutations === true
+
   registerTransactionTools(server, db, userId)
-  registerExpenseCategoryTools(server, db, userId)
-  registerIncomeCategoryTools(server, db, userId)
+  registerExpenseCategoryTools(server, db, userId, allowCategoryMutations)
+  registerIncomeCategoryTools(server, db, userId, allowCategoryMutations)
 
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
   await server.connect(transport)
