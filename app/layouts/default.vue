@@ -4,8 +4,7 @@ const { t } = useI18n();
 const navLinks = computed(() => [
   { label: t("nav.overview"), to: "/" },
   { label: t("nav.transactions"), to: "/transactions" },
-  { label: t("nav.salesSplit"), to: "/sales-split" },
-  { label: t("nav.incomeCategories"), to: "/income-categories" },
+  { label: t("nav.categories"), to: "/categories" },
 ]);
 
 const { user, logout } = useAuth();

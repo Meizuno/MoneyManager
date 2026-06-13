@@ -14,8 +14,7 @@
   "nav": {
     "overview": "Overview",
     "transactions": "Transactions",
-    "salesSplit": "Sales Split",
-    "incomeCategories": "Income Categories"
+    "categories": "Categories"
   },
   "common": {
     "loading": "Loading",
@@ -100,6 +99,12 @@
     "categoryPlaceholder": "Select category",
     "addButton": "Add transaction",
     "manageCategories": "Manage categories..."
+  },
+  "categoriesPage": {
+    "badge": "Planning",
+    "title": "Categories",
+    "description": "Plan how income is split across expense categories and define the categories you use to classify income.",
+    "pageTitle": "Categories — Money Manager"
   },
   "salesSplit": {
     "badge": "Planning",

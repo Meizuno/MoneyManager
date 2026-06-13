@@ -100,7 +100,7 @@ watch(currentCategoryOptions, (options) => {
 watch(() => form.value.category, (val) => {
   if (val === props.manageCategoriesValue) {
     form.value.category = currentCategoryOptions.value.find(o => o.value !== props.manageCategoriesValue)?.value ?? "";
-    router.push(form.value.type === "income" ? "/income-categories" : "/sales-split");
+    router.push(form.value.type === "income" ? "/categories#income" : "/categories#expense");
   }
 });
 
