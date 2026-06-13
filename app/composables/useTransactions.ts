@@ -262,9 +262,19 @@ export const useTransactions = () => {
       } else {
         const [data] = await Promise.all([
           apiFetch<{ items: Transaction[] }>("/api/transactions", {
+            // "all" / empty are UI sentinels for "no filter" — drop them
+            // rather than send them as query params. The server's `type`
+            // is a strict income|expense enum and 400s on "all"; sending
+            // undefined omits the param so the filter is simply absent.
             query: {
-              category: filterCategory.value,
-              type: normalizedFilterType.value,
+              category:
+                filterCategory.value && filterCategory.value !== "all"
+                  ? filterCategory.value
+                  : undefined,
+              type:
+                normalizedFilterType.value !== "all"
+                  ? normalizedFilterType.value
+                  : undefined,
               dateFrom: filterDateFrom.value || undefined,
               dateTo: filterDateTo.value || undefined,
             },
