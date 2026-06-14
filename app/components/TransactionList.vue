@@ -104,7 +104,7 @@ const startEdit = (item: Transaction) => {
     amount: item.amount,
     currency: item.currency ?? "",
     type: item.type ?? "other",
-    category: item.category ?? "other",
+    category: item.category.id ? String(item.category.id) : "",
   };
 };
 
@@ -138,14 +138,14 @@ const submitEdit = (id: number) => {
   <UCard class="glass-card">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 class="text-xl font-semibold text-white">{{ $t('transactions.listTitle') }}</h2>
-        <p class="mt-1 text-sm text-slate-300">{{ $t('transactions.listDesc') }}</p>
+        <h2 class="text-xl font-semibold text-highlighted">{{ $t('transactions.listTitle') }}</h2>
+        <p class="mt-1 text-sm text-muted">{{ $t('transactions.listDesc') }}</p>
       </div>
-      <div class="rounded-2xl bg-white/5 px-4 py-2 text-right">
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-400">{{ $t('transactions.netTotal') }}</p>
+      <div class="rounded-2xl bg-elevated px-4 py-2 text-right">
+        <p class="text-xs uppercase tracking-[0.2em] text-dimmed">{{ $t('transactions.netTotal') }}</p>
         <p
           class="text-lg font-semibold"
-          :class="totalAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+          :class="totalAmount >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
         >
           {{ formatAmount(totalAmount) }}
         </p>
@@ -206,7 +206,7 @@ const submitEdit = (id: number) => {
           </UFormField>
         </div>
       </div>
-      <div class="text-sm text-slate-400">
+      <div class="text-sm text-dimmed">
         {{ transactions.length }} {{ $t('transactions.shown') }}
       </div>
     </div>
@@ -247,7 +247,11 @@ const submitEdit = (id: number) => {
               <UInput v-model="editItem.name" />
             </UFormField>
             <UFormField :label="$t('form.amount')">
-              <UInputNumber v-model="editItem.amount" :step="0.01" />
+              <UInputNumber
+                v-model="editItem.amount"
+                :step="0.01"
+                :format-options="{ minimumFractionDigits: 2, maximumFractionDigits: 2 }"
+              />
             </UFormField>
             <UFormField :label="$t('form.currency')">
               <UInput v-model="editItem.currency" />
@@ -279,10 +283,10 @@ const submitEdit = (id: number) => {
         <template v-else>
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-dimmed">
                 {{ formatDate(item.date) }}
               </p>
-              <p class="mt-1 text-sm font-semibold text-white">
+              <p class="mt-1 text-sm font-semibold text-highlighted">
                 {{ item.name }}
               </p>
               <div class="mt-2 flex flex-wrap gap-2">
@@ -290,14 +294,14 @@ const submitEdit = (id: number) => {
                   {{ item.type || "other" }}
                 </UBadge>
                 <UBadge variant="subtle" color="secondary">
-                  {{ item.category || "other" }}
+                  {{ item.category.label || "other" }}
                 </UBadge>
               </div>
             </div>
             <div class="text-right">
               <p
                 class="text-lg font-semibold"
-                :class="item.type === 'income' ? 'text-emerald-400' : 'text-rose-400'"
+                :class="item.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
               >
                 {{ item.type === 'income' ? '' : '-' }}{{ formatAmount(Math.abs(item.amount), item.currency) }}
               </p>
@@ -319,11 +323,11 @@ const submitEdit = (id: number) => {
         </template>
       </UCard>
       </template>
-      <UCard v-else class="surface-panel border border-dashed border-white/10">
+      <UCard v-else class="surface-panel border border-dashed border-default">
         <div class="flex flex-col items-start gap-3">
           <div>
-            <p class="text-sm font-semibold text-white">{{ $t('transactions.emptyTitle') }}</p>
-            <p class="mt-1 text-sm text-slate-400">{{ $t('transactions.emptyDesc') }}</p>
+            <p class="text-sm font-semibold text-highlighted">{{ $t('transactions.emptyTitle') }}</p>
+            <p class="mt-1 text-sm text-dimmed">{{ $t('transactions.emptyDesc') }}</p>
           </div>
           <div class="flex flex-wrap gap-2">
             <UButton color="primary" variant="solid" to="/import">

@@ -8,8 +8,8 @@ import type {
 } from '#shared/schemas/transaction'
 import { getPrisma } from './db'
 import { CategoryNotFound, TransactionNotFound } from './errors'
-import { expenseCategoryExists } from './expense-categories'
-import { incomeCategoryExists } from './income-categories'
+import { expenseCategoryExists, expenseCategoryLabels } from './expense-categories'
+import { incomeCategoryExists, incomeCategoryLabels } from './income-categories'
 
 // Single home for transaction data-access. Income and Expense live in
 // separate Prisma tables but are one logical resource over HTTP/MCP/
@@ -33,8 +33,12 @@ type DbRow = {
   created_at: Date
 }
 
-// Convert a DB row + known type into the wire-format Transaction.
-function toTransaction(row: DbRow, type: TransactionType): Transaction {
+// Convert a DB row + known type into the wire-format Transaction. The
+// `category` field carries both the stored id and its joined label.
+// `labels` is the id → label map for the row's type; id 0 is the
+// "uncategorised" sentinel and a since-deleted id resolves to an empty
+// label (id preserved either way).
+function toTransaction(row: DbRow, type: TransactionType, labels: Map<number, string>): Transaction {
   return {
     id: row.id,
     date: row.date.toISOString().slice(0, 10),
@@ -42,7 +46,10 @@ function toTransaction(row: DbRow, type: TransactionType): Transaction {
     amount: Number(row.amount),
     currency: row.currency,
     type,
-    category: String(row.category),
+    category: {
+      id: row.category,
+      label: row.category === 0 ? '' : (labels.get(row.category) ?? '')
+    },
     created_at: row.created_at.toISOString()
   }
 }
@@ -115,25 +122,40 @@ export async function listTransactionsScoped(
   const orderBy = [{ date: 'desc' as const }, { id: 'desc' as const }]
 
   if (type === 'income') {
-    const rows = await db.income.findMany({ where, orderBy })
-    return rows.map(r => toTransaction(r, 'income'))
+    const [rows, labels] = await Promise.all([
+      db.income.findMany({ where, orderBy }),
+      incomeCategoryLabels(viewerId)
+    ])
+    return rows.map(r => toTransaction(r, 'income', labels))
   }
   if (type === 'expense') {
-    const rows = await db.expense.findMany({ where, orderBy })
-    return rows.map(r => toTransaction(r, 'expense'))
+    const [rows, labels] = await Promise.all([
+      db.expense.findMany({ where, orderBy }),
+      expenseCategoryLabels(viewerId)
+    ])
+    return rows.map(r => toTransaction(r, 'expense', labels))
   }
 
-  const [incomes, expenses] = await Promise.all([
+  const [incomes, expenses, incomeLabels, expenseLabels] = await Promise.all([
     db.income.findMany({ where, orderBy }),
-    db.expense.findMany({ where, orderBy })
+    db.expense.findMany({ where, orderBy }),
+    incomeCategoryLabels(viewerId),
+    expenseCategoryLabels(viewerId)
   ])
   return [
-    ...incomes.map(r => toTransaction(r, 'income')),
-    ...expenses.map(r => toTransaction(r, 'expense'))
+    ...incomes.map(r => toTransaction(r, 'income', incomeLabels)),
+    ...expenses.map(r => toTransaction(r, 'expense', expenseLabels))
   ].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? 1 : -1
     return b.id - a.id
   })
+}
+
+// Resolve the id → label map for a single resolved type. Small helper so
+// the create/update return paths can hand toTransaction a label without
+// duplicating the type → table choice.
+function categoryLabelsFor(viewerId: string, type: TransactionType): Promise<Map<number, string>> {
+  return type === 'income' ? incomeCategoryLabels(viewerId) : expenseCategoryLabels(viewerId)
 }
 
 // Insert into the right table for the resolved type.
@@ -156,7 +178,7 @@ export async function createTransactionScoped(
   const row = type === 'income'
     ? await db.income.create({ data })
     : await db.expense.create({ data })
-  return toTransaction(row, type)
+  return toTransaction(row, type, await categoryLabelsFor(viewerId, type))
 }
 
 // Find a transaction by id, scoped to the viewer. Probes both tables;
@@ -206,7 +228,7 @@ export async function updateTransactionScoped(
     const row = existing.type === 'income'
       ? await db.income.update({ where: { id }, data })
       : await db.expense.update({ where: { id }, data })
-    return toTransaction(row, existing.type)
+    return toTransaction(row, existing.type, await categoryLabelsFor(viewerId, existing.type))
   }
 
   // Type changed → delete from the old table and create in the new
@@ -223,11 +245,11 @@ export async function updateTransactionScoped(
   if (existing.type === 'income') {
     await db.income.delete({ where: { id } })
     const row = await db.expense.create({ data: fullData })
-    return toTransaction(row, 'expense')
+    return toTransaction(row, 'expense', await expenseCategoryLabels(viewerId))
   }
   await db.expense.delete({ where: { id } })
   const row = await db.income.create({ data: fullData })
-  return toTransaction(row, 'income')
+  return toTransaction(row, 'income', await incomeCategoryLabels(viewerId))
 }
 
 // Atomic scoped delete. deleteMany returns a count rather than

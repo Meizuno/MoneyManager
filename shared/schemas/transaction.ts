@@ -97,6 +97,15 @@ export const listTransactionsQuerySchema = z.object({
 })
 export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>
 
+// The transaction's category on read: the stored id plus its label,
+// joined from the matching category table. id 0 is "uncategorised" and a
+// since-deleted id resolves to an empty label. Writes still take a bare
+// numeric id — see Create/UpdateTransactionInput.
+export type TransactionCategory = {
+  id: number
+  label: string
+}
+
 // Wire shape — what the API returns. `created_at` is ISO; `amount` is
 // already-converted Number (Prisma's Decimal is serialized at the
 // service boundary).
@@ -107,6 +116,6 @@ export type Transaction = {
   amount: number
   currency: string | null
   type: TransactionType
-  category: string
+  category: TransactionCategory
   created_at: string
 }
