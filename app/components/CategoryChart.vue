@@ -8,11 +8,11 @@ defineProps<{
 
 <template>
   <UCard class="glass-card">
-    <h2 class="text-xl font-semibold text-white">{{ $t('categories.title') }}</h2>
+    <h2 class="text-xl font-semibold text-highlighted">{{ $t('categories.title') }}</h2>
     <div class="mt-6 space-y-4">
       <div v-for="item in categoryTotals" :key="item.category">
         <div class="flex items-center justify-between text-xs font-semibold">
-          <span class="text-slate-200">{{ item.category }}</span>
+          <span class="text-toned">{{ item.category }}</span>
           <UBadge
             :color="item.total >= 0 ? 'success' : 'error'"
             variant="subtle"
@@ -21,7 +21,7 @@ defineProps<{
             {{ formatAmount(item.total) }}
           </UBadge>
         </div>
-        <div class="mt-2 h-2 w-full rounded-full bg-white/10">
+        <div class="mt-2 h-2 w-full rounded-full bg-accented">
           <div
             class="h-2 rounded-full"
             :class="item.total >= 0 ? 'bg-emerald-500' : 'bg-rose-500'"
@@ -31,7 +31,7 @@ defineProps<{
           />
         </div>
       </div>
-      <p v-if="categoryTotals.length === 0" class="text-sm text-slate-400">
+      <p v-if="categoryTotals.length === 0" class="text-sm text-dimmed">
         {{ $t('categories.empty') }}
       </p>
     </div>

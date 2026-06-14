@@ -137,8 +137,8 @@ const submitForm = () => {
   <UCard class="glass-card">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 class="text-xl font-semibold text-white">{{ $t('form.title') }}</h2>
-        <p class="mt-1 text-sm text-slate-300">{{ $t('form.description') }}</p>
+        <h2 class="text-xl font-semibold text-highlighted">{{ $t('form.title') }}</h2>
+        <p class="mt-1 text-sm text-muted">{{ $t('form.description') }}</p>
       </div>
       <UBadge color="primary" variant="subtle">{{ $t('form.badge') }}</UBadge>
     </div>
@@ -170,8 +170,9 @@ const submitForm = () => {
         <UFormField :label="$t('form.amount')" :help="$t('form.amountHelp')">
           <UInputNumber
             v-model="form.amount"
-            :step="1"
+            :step="0.01"
             :min="0"
+            :format-options="{ minimumFractionDigits: 2, maximumFractionDigits: 2 }"
             placeholder="12.50"
             class="w-full"
           />
@@ -227,7 +228,7 @@ const submitForm = () => {
         <UButton color="neutral" variant="outline" @click="clearForm">
           {{ $t('common.clear') }}
         </UButton>
-        <p class="text-xs text-slate-400">{{ $t('common.required') }}</p>
+        <p class="text-xs text-dimmed">{{ $t('common.required') }}</p>
       </div>
     </div>
   </UCard>

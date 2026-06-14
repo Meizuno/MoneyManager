@@ -3,8 +3,7 @@ const { t } = useI18n();
 useHead({ title: t("categoriesPage.pageTitle") });
 
 const { totals, formatAmount, loadTransactions, splitRules, incomeCategories } = useTransactions();
-const { loggedIn, apiFetch } = useAuth();
-const { isGuest } = useGuest();
+const { apiFetch } = useAuth();
 await loadTransactions();
 
 interface Rule {
@@ -21,35 +20,34 @@ interface Category {
 }
 
 // 20 predefined colors — index matches server's SPLIT_COLORS order.
-// Shared by both expense (sales-split) and income groups.
+// Shared by both expense (sales-split) and income groups. `text` carries
+// a dark-mode pair: the -300 shade reads well on the dark glass card, but
+// needs the darker -600 to stay legible on the light theme's surfaces.
 const COLOR_CLASSES: Record<string, { text: string; bar: string; badge: string }> = {
-  cyan:    { text: "text-cyan-300",    bar: "bg-cyan-400",    badge: "bg-cyan-500/15 border-cyan-400/30 text-cyan-300" },
-  violet:  { text: "text-violet-300",  bar: "bg-violet-400",  badge: "bg-violet-500/15 border-violet-400/30 text-violet-300" },
-  amber:   { text: "text-amber-300",   bar: "bg-amber-400",   badge: "bg-amber-500/15 border-amber-400/30 text-amber-300" },
-  emerald: { text: "text-emerald-300", bar: "bg-emerald-400", badge: "bg-emerald-500/15 border-emerald-400/30 text-emerald-300" },
-  rose:    { text: "text-rose-300",    bar: "bg-rose-400",    badge: "bg-rose-500/15 border-rose-400/30 text-rose-300" },
-  sky:     { text: "text-sky-300",     bar: "bg-sky-400",     badge: "bg-sky-500/15 border-sky-400/30 text-sky-300" },
-  indigo:  { text: "text-indigo-300",  bar: "bg-indigo-400",  badge: "bg-indigo-500/15 border-indigo-400/30 text-indigo-300" },
-  pink:    { text: "text-pink-300",    bar: "bg-pink-400",    badge: "bg-pink-500/15 border-pink-400/30 text-pink-300" },
-  orange:  { text: "text-orange-300",  bar: "bg-orange-400",  badge: "bg-orange-500/15 border-orange-400/30 text-orange-300" },
-  teal:    { text: "text-teal-300",    bar: "bg-teal-400",    badge: "bg-teal-500/15 border-teal-400/30 text-teal-300" },
-  purple:  { text: "text-purple-300",  bar: "bg-purple-400",  badge: "bg-purple-500/15 border-purple-400/30 text-purple-300" },
-  yellow:  { text: "text-yellow-300",  bar: "bg-yellow-400",  badge: "bg-yellow-500/15 border-yellow-400/30 text-yellow-300" },
-  red:     { text: "text-red-300",     bar: "bg-red-400",     badge: "bg-red-500/15 border-red-400/30 text-red-300" },
-  blue:    { text: "text-blue-300",    bar: "bg-blue-400",    badge: "bg-blue-500/15 border-blue-400/30 text-blue-300" },
-  green:   { text: "text-green-300",   bar: "bg-green-400",   badge: "bg-green-500/15 border-green-400/30 text-green-300" },
-  fuchsia: { text: "text-fuchsia-300", bar: "bg-fuchsia-400", badge: "bg-fuchsia-500/15 border-fuchsia-400/30 text-fuchsia-300" },
-  lime:    { text: "text-lime-300",    bar: "bg-lime-400",    badge: "bg-lime-500/15 border-lime-400/30 text-lime-300" },
-  slate:   { text: "text-slate-300",   bar: "bg-slate-400",   badge: "bg-slate-500/15 border-slate-400/30 text-slate-300" },
-  zinc:    { text: "text-zinc-300",    bar: "bg-zinc-400",    badge: "bg-zinc-500/15 border-zinc-400/30 text-zinc-300" },
+  cyan:    { text: "text-cyan-600 dark:text-cyan-300",       bar: "bg-cyan-400",    badge: "bg-cyan-500/15 border-cyan-400/30 text-cyan-300" },
+  violet:  { text: "text-violet-600 dark:text-violet-300",   bar: "bg-violet-400",  badge: "bg-violet-500/15 border-violet-400/30 text-violet-300" },
+  amber:   { text: "text-amber-600 dark:text-amber-300",     bar: "bg-amber-400",   badge: "bg-amber-500/15 border-amber-400/30 text-amber-300" },
+  emerald: { text: "text-emerald-600 dark:text-emerald-300", bar: "bg-emerald-400", badge: "bg-emerald-500/15 border-emerald-400/30 text-emerald-300" },
+  rose:    { text: "text-rose-600 dark:text-rose-300",       bar: "bg-rose-400",    badge: "bg-rose-500/15 border-rose-400/30 text-rose-300" },
+  sky:     { text: "text-sky-600 dark:text-sky-300",         bar: "bg-sky-400",     badge: "bg-sky-500/15 border-sky-400/30 text-sky-300" },
+  indigo:  { text: "text-indigo-600 dark:text-indigo-300",   bar: "bg-indigo-400",  badge: "bg-indigo-500/15 border-indigo-400/30 text-indigo-300" },
+  pink:    { text: "text-pink-600 dark:text-pink-300",       bar: "bg-pink-400",    badge: "bg-pink-500/15 border-pink-400/30 text-pink-300" },
+  orange:  { text: "text-orange-600 dark:text-orange-300",   bar: "bg-orange-400",  badge: "bg-orange-500/15 border-orange-400/30 text-orange-300" },
+  teal:    { text: "text-teal-600 dark:text-teal-300",       bar: "bg-teal-400",    badge: "bg-teal-500/15 border-teal-400/30 text-teal-300" },
+  purple:  { text: "text-purple-600 dark:text-purple-300",   bar: "bg-purple-400",  badge: "bg-purple-500/15 border-purple-400/30 text-purple-300" },
+  yellow:  { text: "text-yellow-600 dark:text-yellow-300",   bar: "bg-yellow-400",  badge: "bg-yellow-500/15 border-yellow-400/30 text-yellow-300" },
+  red:     { text: "text-red-600 dark:text-red-300",         bar: "bg-red-400",     badge: "bg-red-500/15 border-red-400/30 text-red-300" },
+  blue:    { text: "text-blue-600 dark:text-blue-300",       bar: "bg-blue-400",    badge: "bg-blue-500/15 border-blue-400/30 text-blue-300" },
+  green:   { text: "text-green-600 dark:text-green-300",     bar: "bg-green-400",   badge: "bg-green-500/15 border-green-400/30 text-green-300" },
+  fuchsia: { text: "text-fuchsia-600 dark:text-fuchsia-300", bar: "bg-fuchsia-400", badge: "bg-fuchsia-500/15 border-fuchsia-400/30 text-fuchsia-300" },
+  lime:    { text: "text-lime-600 dark:text-lime-300",       bar: "bg-lime-400",    badge: "bg-lime-500/15 border-lime-400/30 text-lime-300" },
+  slate:   { text: "text-slate-600 dark:text-slate-300",     bar: "bg-slate-400",   badge: "bg-slate-500/15 border-slate-400/30 text-slate-300" },
+  zinc:    { text: "text-zinc-600 dark:text-zinc-300",       bar: "bg-zinc-400",    badge: "bg-zinc-500/15 border-zinc-400/30 text-zinc-300" },
 };
-
-const GUEST_COLORS = Object.keys(COLOR_CLASSES);
 
 // ---------------------------------------------------------------------------
 // Expense categories (sales-split rules) — percent allocation of income.
 // ---------------------------------------------------------------------------
-const RULES_GUEST_KEY = "mm_guest_splits";
 const rules = ref<Rule[]>([]);
 const savingRule = ref(false);
 
@@ -68,27 +66,7 @@ async function loadRulesFromApi(): Promise<Rule[]> {
   } catch { return []; }
 }
 
-function loadRulesFromStorage(): Rule[] {
-  try { return JSON.parse(localStorage.getItem(RULES_GUEST_KEY) ?? "[]"); } catch { return []; }
-}
-
-function defaultRules(): Rule[] {
-  return [
-    { id: 1, label: t("salesSplit.defaultTaxes"),   percent: 25, color: "amber" },
-    { id: 2, label: t("salesSplit.defaultSavings"), percent: 20, color: "cyan" },
-  ];
-}
-
-const ruleNextId = computed(() => rules.value.reduce((m, r) => Math.max(m, r.id), 0) + 1);
-function ruleNextColor() { return GUEST_COLORS[rules.value.length % GUEST_COLORS.length] as string; }
-function saveRulesGuest() { localStorage.setItem(RULES_GUEST_KEY, JSON.stringify(rules.value)); }
-
 async function addRule() {
-  if (isGuest.value) {
-    rules.value.push({ id: ruleNextId.value, label: t("salesSplit.newRule"), percent: 10, color: ruleNextColor() });
-    saveRulesGuest();
-    return;
-  }
   savingRule.value = true;
   try {
     const rule = await apiFetch<Rule>("/api/sales-split", {
@@ -101,7 +79,6 @@ async function addRule() {
 
 const ruleTimers: Record<number, ReturnType<typeof setTimeout>> = {};
 function onRuleInput(rule: Rule) {
-  if (isGuest.value) { saveRulesGuest(); return; }
   clearTimeout(ruleTimers[rule.id]);
   ruleTimers[rule.id] = setTimeout(async () => {
     await apiFetch(`/api/sales-split/${rule.id}`, {
@@ -112,11 +89,6 @@ function onRuleInput(rule: Rule) {
 }
 
 async function removeRule(id: number) {
-  if (isGuest.value) {
-    rules.value = rules.value.filter((r) => r.id !== id);
-    saveRulesGuest();
-    return;
-  }
   await apiFetch(`/api/sales-split/${id}`, { method: "DELETE" });
   rules.value = rules.value.filter((r) => r.id !== id);
 }
@@ -129,7 +101,6 @@ const splitAmount = (percent: number) => (income.value * percent) / 100;
 // ---------------------------------------------------------------------------
 // Income categories — label-only classification of income transactions.
 // ---------------------------------------------------------------------------
-const CATEGORIES_GUEST_KEY = "mm_guest_income_categories";
 const categories = ref<Category[]>([]);
 const savingCategory = ref(false);
 
@@ -148,20 +119,7 @@ async function loadCategoriesFromApi(): Promise<Category[]> {
   } catch { return []; }
 }
 
-function loadCategoriesFromStorage(): Category[] {
-  try { return JSON.parse(localStorage.getItem(CATEGORIES_GUEST_KEY) ?? "[]"); } catch { return []; }
-}
-
-const categoryNextId = computed(() => categories.value.reduce((m, c) => Math.max(m, c.id), 0) + 1);
-function categoryNextColor() { return GUEST_COLORS[categories.value.length % GUEST_COLORS.length] as string; }
-function saveCategoriesGuest() { localStorage.setItem(CATEGORIES_GUEST_KEY, JSON.stringify(categories.value)); }
-
 async function addCategory() {
-  if (isGuest.value) {
-    categories.value.push({ id: categoryNextId.value, label: t("incomeCategories.newCategory"), color: categoryNextColor() });
-    saveCategoriesGuest();
-    return;
-  }
   savingCategory.value = true;
   try {
     const cat = await apiFetch<Category>("/api/income-categories", {
@@ -174,7 +132,6 @@ async function addCategory() {
 
 const categoryTimers: Record<number, ReturnType<typeof setTimeout>> = {};
 function onCategoryInput(cat: Category) {
-  if (isGuest.value) { saveCategoriesGuest(); return; }
   clearTimeout(categoryTimers[cat.id]);
   categoryTimers[cat.id] = setTimeout(async () => {
     await apiFetch(`/api/income-categories/${cat.id}`, {
@@ -185,27 +142,16 @@ function onCategoryInput(cat: Category) {
 }
 
 async function removeCategory(id: number) {
-  if (isGuest.value) {
-    categories.value = categories.value.filter((c) => c.id !== id);
-    saveCategoriesGuest();
-    return;
-  }
   await apiFetch(`/api/income-categories/${id}`, { method: "DELETE" });
   categories.value = categories.value.filter((c) => c.id !== id);
 }
 
 // ---------------------------------------------------------------------------
 onMounted(async () => {
-  if (isGuest.value) {
-    const storedRules = loadRulesFromStorage();
-    rules.value = storedRules.length ? storedRules : defaultRules();
-    categories.value = loadCategoriesFromStorage();
-  } else if (loggedIn.value) {
-    [rules.value, categories.value] = await Promise.all([
-      loadRulesFromApi(),
-      loadCategoriesFromApi(),
-    ]);
-  }
+  [rules.value, categories.value] = await Promise.all([
+    loadRulesFromApi(),
+    loadCategoriesFromApi(),
+  ]);
 });
 </script>
 
@@ -224,26 +170,26 @@ onMounted(async () => {
     <!-- Expense categories (sales split) -->
     <section id="expense" class="flex flex-col gap-6 scroll-mt-28">
       <div>
-        <h2 class="text-xl font-semibold text-white">{{ $t('salesSplit.title') }}</h2>
-        <p class="mt-1 text-sm text-slate-400">{{ $t('salesSplit.description') }}</p>
+        <h2 class="text-xl font-semibold text-highlighted">{{ $t('salesSplit.title') }}</h2>
+        <p class="mt-1 text-sm text-dimmed">{{ $t('salesSplit.description') }}</p>
       </div>
 
       <!-- Income summary -->
       <div class="grid gap-4 md:grid-cols-3">
         <UCard class="glass-card">
-          <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">{{ $t('salesSplit.totalIncome') }}</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.25em] text-dimmed">{{ $t('salesSplit.totalIncome') }}</p>
           <p class="mt-3 text-2xl font-semibold text-emerald-300">{{ formatAmount(income) }}</p>
         </UCard>
         <UCard class="glass-card">
-          <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">{{ $t('salesSplit.allocated') }}</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.25em] text-dimmed">{{ $t('salesSplit.allocated') }}</p>
           <p class="mt-3 text-2xl font-semibold" :class="overLimit ? 'text-rose-300' : 'text-cyan-300'">
             {{ totalPercent }}%
           </p>
         </UCard>
         <UCard class="glass-card">
-          <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">{{ $t('salesSplit.remaining') }}</p>
-          <p class="mt-3 text-2xl font-semibold text-white">{{ formatAmount(splitAmount(Math.max(0, 100 - totalPercent))) }}</p>
-          <p class="mt-1 text-xs text-slate-400">{{ Math.max(0, 100 - totalPercent) }}{{ $t('salesSplit.unallocated') }}</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.25em] text-dimmed">{{ $t('salesSplit.remaining') }}</p>
+          <p class="mt-3 text-2xl font-semibold text-highlighted">{{ formatAmount(splitAmount(Math.max(0, 100 - totalPercent))) }}</p>
+          <p class="mt-1 text-xs text-dimmed">{{ Math.max(0, 100 - totalPercent) }}{{ $t('salesSplit.unallocated') }}</p>
         </UCard>
       </div>
 
@@ -254,13 +200,13 @@ onMounted(async () => {
       <!-- Rules -->
       <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">{{ $t('salesSplit.rulesTitle') }}</h3>
+          <h3 class="text-lg font-semibold text-highlighted">{{ $t('salesSplit.rulesTitle') }}</h3>
           <UButton icon="i-heroicons-plus" color="primary" variant="subtle" size="sm" :loading="savingRule" @click="addRule">
             {{ $t('salesSplit.addRule') }}
           </UButton>
         </div>
 
-        <div v-if="rules.length === 0" class="glass-card rounded-2xl p-6 text-center text-slate-400">
+        <div v-if="rules.length === 0" class="glass-card rounded-2xl p-6 text-center text-dimmed">
           {{ $t('salesSplit.noRules') }}
         </div>
 
@@ -272,17 +218,17 @@ onMounted(async () => {
             <input
               v-model="rule.label"
               type="text"
-              class="min-w-0 flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
+              class="min-w-0 flex-1 bg-transparent text-sm text-highlighted placeholder:text-dimmed outline-none"
               :placeholder="$t('salesSplit.labelPlaceholder')"
               @input="onRuleInput(rule)"
             >
             <input
               v-model.number="rule.percent"
               type="number" min="0" max="100" step="1"
-              class="w-14 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-center text-sm text-white outline-none focus:border-cyan-400/50"
+              class="w-14 rounded-lg border border-default bg-elevated px-2 py-1 text-center text-sm text-highlighted outline-none focus:border-cyan-400/50"
               @input="onRuleInput(rule)"
             >
-            <span class="text-xs text-slate-400">%</span>
+            <span class="text-xs text-dimmed">%</span>
             <span :class="['text-sm font-semibold', colorOfRule(rule).text]">
               {{ formatAmount(splitAmount(rule.percent)) }}
             </span>
@@ -295,8 +241,8 @@ onMounted(async () => {
 
       <!-- Overview bar -->
       <UCard v-if="rules.length > 0" class="glass-card">
-        <p class="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">{{ $t('salesSplit.allocationOverview') }}</p>
-        <div class="flex h-4 w-full overflow-hidden rounded-full bg-white/5">
+        <p class="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-dimmed">{{ $t('salesSplit.allocationOverview') }}</p>
+        <div class="flex h-4 w-full overflow-hidden rounded-full bg-elevated">
           <div
             v-for="rule in rules" :key="rule.id"
             :class="colorOfRule(rule).bar"
@@ -306,36 +252,36 @@ onMounted(async () => {
           />
         </div>
         <div class="mt-3 flex flex-wrap gap-4">
-          <div v-for="rule in rules" :key="rule.id" class="flex items-center gap-1.5 text-xs text-slate-300">
+          <div v-for="rule in rules" :key="rule.id" class="flex items-center gap-1.5 text-xs text-muted">
             <span class="inline-block h-2.5 w-2.5 rounded-full" :class="colorOfRule(rule).bar" />
             {{ rule.label }} — {{ rule.percent }}%
           </div>
-          <div v-if="totalPercent < 100" class="flex items-center gap-1.5 text-xs text-slate-500">
-            <span class="inline-block h-2.5 w-2.5 rounded-full bg-white/10" />
+          <div v-if="totalPercent < 100" class="flex items-center gap-1.5 text-xs text-dimmed">
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-accented" />
             {{ $t('salesSplit.unallocatedLabel') }} — {{ 100 - totalPercent }}%
           </div>
         </div>
       </UCard>
     </section>
 
-    <div class="h-px w-full bg-white/5" />
+    <div class="h-px w-full bg-elevated" />
 
     <!-- Income categories -->
     <section id="income" class="flex flex-col gap-6 scroll-mt-28">
       <div>
-        <h2 class="text-xl font-semibold text-white">{{ $t('incomeCategories.title') }}</h2>
-        <p class="mt-1 text-sm text-slate-400">{{ $t('incomeCategories.description') }}</p>
+        <h2 class="text-xl font-semibold text-highlighted">{{ $t('incomeCategories.title') }}</h2>
+        <p class="mt-1 text-sm text-dimmed">{{ $t('incomeCategories.description') }}</p>
       </div>
 
       <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">{{ $t('incomeCategories.title') }}</h3>
+          <h3 class="text-lg font-semibold text-highlighted">{{ $t('incomeCategories.title') }}</h3>
           <UButton icon="i-heroicons-plus" color="primary" variant="subtle" size="sm" :loading="savingCategory" @click="addCategory">
             {{ $t('incomeCategories.addCategory') }}
           </UButton>
         </div>
 
-        <div v-if="categories.length === 0" class="glass-card rounded-2xl p-6 text-center text-slate-400">
+        <div v-if="categories.length === 0" class="glass-card rounded-2xl p-6 text-center text-dimmed">
           {{ $t('incomeCategories.noCategories') }}
         </div>
 
@@ -347,7 +293,7 @@ onMounted(async () => {
             <input
               v-model="cat.label"
               type="text"
-              class="min-w-0 flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
+              class="min-w-0 flex-1 bg-transparent text-sm text-highlighted placeholder:text-dimmed outline-none"
               :placeholder="$t('incomeCategories.labelPlaceholder')"
               @input="onCategoryInput(cat)"
             >
