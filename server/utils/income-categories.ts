@@ -48,6 +48,18 @@ export async function incomeCategoryExists(viewerId: string, id: number): Promis
   return row !== null
 }
 
+// id → label map for the viewer's income categories. Mirrors
+// expenseCategoryLabels — used by the transaction reads to resolve the
+// stored category id into its label (no Prisma relation exists, so the
+// join lives in application code).
+export async function incomeCategoryLabels(viewerId: string): Promise<Map<number, string>> {
+  const rows = await getPrisma().incomeCategory.findMany({
+    where: { user_id: viewerId },
+    select: { id: true, label: true }
+  })
+  return new Map(rows.map(r => [r.id, r.label]))
+}
+
 // Append a new category to the end of the user's list, picking the
 // next palette colour. Position is intentionally the current count so
 // the new entry shows up after every existing one.

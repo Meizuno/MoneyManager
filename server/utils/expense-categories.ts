@@ -55,6 +55,18 @@ export async function expenseCategoryExists(viewerId: string, id: number): Promi
   return row !== null
 }
 
+// id → label map for the viewer's expense categories. Used by the
+// transaction reads to resolve the stored category id into its label
+// (there is no Prisma relation between the row's `category` int and the
+// category tables, so the join is done in application code).
+export async function expenseCategoryLabels(viewerId: string): Promise<Map<number, string>> {
+  const rows = await getPrisma().expenseCategory.findMany({
+    where: { user_id: viewerId },
+    select: { id: true, label: true }
+  })
+  return new Map(rows.map(r => [r.id, r.label]))
+}
+
 export async function createExpenseCategoryScoped(
   viewerId: string,
   input: CreateExpenseCategoryInput

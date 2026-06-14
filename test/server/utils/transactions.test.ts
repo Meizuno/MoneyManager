@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { PrismaClient } from '@prisma/client'
 import {
   createTransactionScoped,
+  listTransactionsScoped,
   updateTransactionScoped
 } from '../../../server/utils/transactions'
 import { CategoryNotFound } from '../../../server/utils/errors'
@@ -48,8 +49,14 @@ function makeDb() {
       delete: vi.fn(async () => makeRow()),
       findFirst: vi.fn(async () => null)
     },
-    expenseCategory: { findFirst: vi.fn(async () => null) },
-    incomeCategory: { findFirst: vi.fn(async () => null) }
+    expenseCategory: {
+      findFirst: vi.fn(async () => null),
+      findMany: vi.fn(async (): Promise<{ id: number, label: string }[]> => [])
+    },
+    incomeCategory: {
+      findFirst: vi.fn(async () => null),
+      findMany: vi.fn(async (): Promise<{ id: number, label: string }[]> => [])
+    }
   }
 }
 
@@ -147,5 +154,33 @@ describe('updateTransactionScoped — category integrity', () => {
     await updateTransactionScoped('u1', 7, { category: 8 })
     expect(db.expense.update).toHaveBeenCalledOnce()
     expect(db.expense.update.mock.calls[0][0].data.category).toBe(8)
+  })
+})
+
+describe('category join — reads return { id, label }', () => {
+  it('lists with the expense category label resolved from its table', async () => {
+    db.expense.findMany = vi.fn(async () => [makeRow({ id: 7, category: 3 })])
+    db.expenseCategory.findMany.mockResolvedValue([{ id: 3, label: 'Food' }])
+    const items = await listTransactionsScoped('u1', { type: 'expense' })
+    expect(items[0]!.category).toEqual({ id: 3, label: 'Food' })
+  })
+
+  it('returns the id + label on create', async () => {
+    db.expenseCategory.findFirst.mockResolvedValue({ id: 3 })
+    db.expenseCategory.findMany.mockResolvedValue([{ id: 3, label: 'Food' }])
+    const item = await createTransactionScoped('u1', { ...base, type: 'expense', category: 3 })
+    expect(item.category).toEqual({ id: 3, label: 'Food' })
+  })
+
+  it('returns id 0 with an empty label for the uncategorised sentinel', async () => {
+    const item = await createTransactionScoped('u1', { ...base, type: 'expense', category: 0 })
+    expect(item.category).toEqual({ id: 0, label: '' })
+  })
+
+  it('keeps the id but empties the label when the row no longer exists (deleted)', async () => {
+    db.expense.findMany = vi.fn(async () => [makeRow({ id: 7, category: 99 })])
+    db.expenseCategory.findMany.mockResolvedValue([{ id: 3, label: 'Food' }])
+    const items = await listTransactionsScoped('u1', { type: 'expense' })
+    expect(items[0]!.category).toEqual({ id: 99, label: '' })
   })
 })

@@ -1,46 +1,29 @@
-import { getCookie } from 'h3'
-
-// Pre-route auth pass. For each /api/* request (except the explicitly
-// excluded auth/mcp/prompt/health surfaces) we populate
-// event.context.user when a valid session is present; downstream
-// services call requireAuthUser() to gate, or viewerId() to scope reads.
+// Pre-route auth pass. Runs authenticate() for API *and* page requests:
+//   - API routes: populate event.context.user so services can
+//     requireAuthUser() to gate or viewerId() to scope reads.
+//   - Page (SSR) routes: authenticate the page request itself so a stale
+//     access token is refreshed ONCE here and the cookie header rewritten
+//     in place — the page's inner /api fetches (useRequestFetch forwards
+//     this request's cookies) then carry the fresh token instead of each
+//     racing to refresh the rotated one. This is what makes SSR-first
+//     data fetching authenticated on the very first render.
 //
-// On a stale access token we attempt one refresh against the auth
-// service and rewrite the cookies on success. A failed refresh leaves
-// the request anonymous — downstream requireAuthUser throws the actual
-// 401. (Clearing cookies on refresh failure was too aggressive: a
-// transient auth-service blip would log the user out of every tab.)
+// authenticate() owns the validate → refresh → rewrite-cookies logic.
+// The excluded surfaces manage their own auth (e.g. /api/auth/me runs
+// authenticate() via requireAuthUser; the OAuth handshake needs none).
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
   if (
-    !path.startsWith('/api/')
-    || path.startsWith('/api/auth/')
+    path.startsWith('/api/auth/')
     || path.startsWith('/api/mcp')
     || path.startsWith('/api/prompts/')
     || path === '/api/health'
   ) return
 
-  const ok = await authenticate(event)
-  if (ok) return
+  // Skip static assets (they carry a file extension); authenticate every
+  // API route and every page navigation.
+  const isApi = path.startsWith('/api/')
+  if (!isApi && path.includes('.')) return
 
-  const refreshToken = getCookie(event, 'mm_refresh')
-  if (!refreshToken) return
-
-  try {
-    const config = useRuntimeConfig()
-    const result = await $fetch<{ access_token: string, refresh_token: string }>(
-      `${config.authServiceUrl}/refresh`,
-      { method: 'POST', body: { refresh_token: refreshToken } }
-    )
-    setAuthCookies(event, result.access_token, result.refresh_token)
-    const refreshed = await verifyAccessToken(result.access_token)
-    if (refreshed) {
-      event.context.user = refreshed
-      event.context.accessToken = result.access_token
-    }
-  }
-  catch {
-    // Silent — see comment above. Stay anonymous; let requireAuthUser
-    // throw the 401 at the actual gate.
-  }
+  await authenticate(event)
 })

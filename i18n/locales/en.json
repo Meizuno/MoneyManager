@@ -148,10 +148,6 @@
     "forbiddenDesc": "Your account is not allowed to sign in.",
     "signIn": "Sign in with Google",
     "signedIn": "Signed in",
-    "logOut": "Log out",
-    "guest": "Guest",
-    "continueAsGuest": "Continue as guest",
-    "anonMode": "Anonymous mode",
-    "anonDesc": "Data imported while anonymous is not stored."
+    "logOut": "Log out"
   }
 }

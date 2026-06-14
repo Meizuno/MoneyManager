@@ -2,7 +2,6 @@ import type { Transaction, CreateTransactionPayload } from "#shared/schemas/tran
 
 export const useTransactions = () => {
   const { t } = useI18n();
-  const { isGuest, loadGuestTransactions, saveGuestTransactions } = useGuest();
 
   const transactions = useState<Transaction[]>("transactions", () => []);
   const loading = useState<boolean>("transactions_loading", () => false);
@@ -75,19 +74,20 @@ export const useTransactions = () => {
   };
 
   const categories = computed(() => {
-    const set = new Set<string>();
+    // Distinct id → label pairs from the loaded transactions. The filter
+    // option's value is the id (what the API filters on); the label comes
+    // straight off the joined category. Skip uncategorised (id 0).
+    const byId = new Map<number, string>();
     transactions.value.forEach((item) => {
-      if (item.category) set.add(item.category);
+      if (item.category.id) byId.set(item.category.id, item.category.label);
     });
-    const list = Array.from(set).sort((a, b) => a.localeCompare(b));
+    const list = Array.from(byId.entries()).sort((a, b) => a[1].localeCompare(b[1]));
     return [
       { label: t("types.all"), value: "all" },
-      ...list.map((v) => ({
-        label: splitRules.value.find((r) => String(r.id) === v)?.label
-          ?? incomeCategories.value.find((r) => String(r.id) === v)?.label
-          ?? t(`categories.${v}`) ?? v,
-        value: v,
-        icon: categoryIconMap[v] ?? "i-heroicons-chart-pie",
+      ...list.map(([id, label]) => ({
+        label: label || t("categories.other"),
+        value: String(id),
+        icon: categoryIconMap[label.toLowerCase()] ?? "i-heroicons-chart-pie",
       })),
     ];
   });
@@ -126,7 +126,7 @@ export const useTransactions = () => {
   const categoryTotals = computed(() => {
     const map = new Map<string, number>();
     transactions.value.forEach((item) => {
-      const key = item.category || "other";
+      const key = item.category.label || "other";
       const abs = Math.abs(item.amount ?? 0);
       const signed = item.type === "income" ? abs : -abs;
       map.set(key, (map.get(key) ?? 0) + signed);
@@ -168,11 +168,6 @@ export const useTransactions = () => {
   };
 
   const { apiFetch } = useAuth();
-
-  const nextGuestId = () => {
-    const items = loadGuestTransactions();
-    return items.reduce((max, t) => Math.max(max, t.id), 0) + 1;
-  };
 
   const normalizeTypeFilter = (value: string) => {
     const normalized = value.trim().toLowerCase();
@@ -225,13 +220,6 @@ export const useTransactions = () => {
   );
 
   const loadSplitRules = async () => {
-    if (isGuest.value) {
-      try {
-        const stored = localStorage.getItem("mm_guest_splits");
-        splitRules.value = stored ? JSON.parse(stored) : [];
-      } catch { splitRules.value = []; }
-      return;
-    }
     try {
       const data = await apiFetch<{ rules: { id: number; label: string; color: string }[] }>("/api/sales-split");
       splitRules.value = data.rules ?? [];
@@ -239,13 +227,6 @@ export const useTransactions = () => {
   };
 
   const loadIncomeCategories = async () => {
-    if (isGuest.value) {
-      try {
-        const stored = localStorage.getItem("mm_guest_income_categories");
-        incomeCategories.value = stored ? JSON.parse(stored) : [];
-      } catch { incomeCategories.value = []; }
-      return;
-    }
     try {
       const data = await apiFetch<{ categories: { id: number; label: string; color: string }[] }>("/api/income-categories");
       incomeCategories.value = data.categories ?? [];
@@ -257,33 +238,29 @@ export const useTransactions = () => {
     loading.value = true;
     if (!opts?.preserveStatus) resetMessages(); else errorMessage.value = "";
     try {
-      if (isGuest.value) {
-        transactions.value = loadGuestTransactions();
-      } else {
-        const [data] = await Promise.all([
-          apiFetch<{ items: Transaction[] }>("/api/transactions", {
-            // "all" / empty are UI sentinels for "no filter" — drop them
-            // rather than send them as query params. The server's `type`
-            // is a strict income|expense enum and 400s on "all"; sending
-            // undefined omits the param so the filter is simply absent.
-            query: {
-              category:
-                filterCategory.value && filterCategory.value !== "all"
-                  ? filterCategory.value
-                  : undefined,
-              type:
-                normalizedFilterType.value !== "all"
-                  ? normalizedFilterType.value
-                  : undefined,
-              dateFrom: filterDateFrom.value || undefined,
-              dateTo: filterDateTo.value || undefined,
-            },
-          }),
-          splitRules.value.length === 0 ? loadSplitRules() : Promise.resolve(),
-          incomeCategories.value.length === 0 ? loadIncomeCategories() : Promise.resolve(),
-        ]);
-        transactions.value = data.items ?? [];
-      }
+      const [data] = await Promise.all([
+        apiFetch<{ items: Transaction[] }>("/api/transactions", {
+          // "all" / empty are UI sentinels for "no filter" — drop them
+          // rather than send them as query params. The server's `type`
+          // is a strict income|expense enum and 400s on "all"; sending
+          // undefined omits the param so the filter is simply absent.
+          query: {
+            category:
+              filterCategory.value && filterCategory.value !== "all"
+                ? filterCategory.value
+                : undefined,
+            type:
+              normalizedFilterType.value !== "all"
+                ? normalizedFilterType.value
+                : undefined,
+            dateFrom: filterDateFrom.value || undefined,
+            dateTo: filterDateTo.value || undefined,
+          },
+        }),
+        splitRules.value.length === 0 ? loadSplitRules() : Promise.resolve(),
+        incomeCategories.value.length === 0 ? loadIncomeCategories() : Promise.resolve(),
+      ]);
+      transactions.value = data.items ?? [];
     } catch {
       errorMessage.value = "Unable to load transactions.";
     } finally {
@@ -294,16 +271,8 @@ export const useTransactions = () => {
   const createTransaction = async (input: CreateTransactionPayload) => {
     resetMessages();
     try {
-      if (isGuest.value) {
-        const items = loadGuestTransactions();
-        const now = new Date().toISOString();
-        items.push({ ...input, id: nextGuestId(), created_at: now } as Transaction);
-        saveGuestTransactions(items);
-        transactions.value = items;
-      } else {
-        await apiFetch("/api/transactions", { method: "POST", body: input });
-        await loadTransactions({ force: true, preserveStatus: true });
-      }
+      await apiFetch("/api/transactions", { method: "POST", body: input });
+      await loadTransactions({ force: true, preserveStatus: true });
       statusMessage.value = "Transaction added.";
       return true;
     } catch {
@@ -315,21 +284,8 @@ export const useTransactions = () => {
   const updateTransaction = async (id: number, input: CreateTransactionPayload) => {
     resetMessages();
     try {
-      if (isGuest.value) {
-        // The merge produces an `amount: number | string` (input is the
-        // pre-validation payload). Same `as Transaction` cast the create
-        // path already uses — guest-mode data is local-only and the
-        // form's isValid guard ensures the value is a real number in
-        // practice.
-        const items = loadGuestTransactions().map((t): Transaction =>
-          t.id === id ? ({ ...t, ...input } as Transaction) : t
-        );
-        saveGuestTransactions(items);
-        transactions.value = items;
-      } else {
-        await apiFetch(`/api/transactions/${id}`, { method: "PUT", body: input });
-        await loadTransactions({ force: true, preserveStatus: true });
-      }
+      await apiFetch(`/api/transactions/${id}`, { method: "PUT", body: input });
+      await loadTransactions({ force: true, preserveStatus: true });
       statusMessage.value = "Transaction updated.";
       return true;
     } catch {
@@ -341,14 +297,8 @@ export const useTransactions = () => {
   const deleteTransaction = async (id: number) => {
     resetMessages();
     try {
-      if (isGuest.value) {
-        const items = loadGuestTransactions().filter((t) => t.id !== id);
-        saveGuestTransactions(items);
-        transactions.value = items;
-      } else {
-        await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
-        await loadTransactions({ force: true, preserveStatus: true });
-      }
+      await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
+      await loadTransactions({ force: true, preserveStatus: true });
       statusMessage.value = "Transaction deleted.";
       return true;
     } catch {
