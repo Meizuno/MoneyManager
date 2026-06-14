@@ -1,8 +1,7 @@
 export default defineNuxtPlugin(async () => {
-  const { initGuest, isGuest } = useGuest();
-  initGuest();
-  if (isGuest.value) return;
-
-  const { refresh } = useAuth();
-  await refresh();
+  // The server plugin already populated the user during SSR; only fetch
+  // on the client when it didn't (e.g. a fresh anonymous load), avoiding
+  // a redundant /api/auth/me round-trip on every authenticated page load.
+  const { user, refresh } = useAuth();
+  if (!user.value) await refresh();
 });
