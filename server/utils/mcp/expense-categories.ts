@@ -7,6 +7,8 @@ import {
   listExpenseCategoriesScoped,
   updateExpenseCategoryScoped
 } from '../expense-categories'
+import { Forbidden } from '../errors'
+import { requireScope, type Principal, type Scope } from '../scopes'
 import { toJson, optStr } from './helpers'
 
 // MCP tools for expense categories (a.k.a. sales-split rules). All
@@ -14,81 +16,78 @@ import { toJson, optStr } from './helpers'
 // scope, auto-colour assignment, and typed ExpenseCategoryNotFound
 // exist in one place.
 //
-// Pre-refactor, this file shipped two real cross-user bugs:
-// `update_expense_category` and `remove_expense_category` called
-// `db.expenseCategory.update / .delete` with `where: { id }` only,
-// no user_id filter — any caller knowing an id could overwrite or
-// delete another user's category. Routing through the scoped utils
-// closes that hole atomically.
-// `allowMutations` gates the category-MUTATING tools (add/update/remove).
-// When false (the default), only the read tools are registered — the chat
-// model can reference category ids on transactions but can't create,
-// rename, or delete categories. See runtimeConfig.mcpAllowCategoryMutations.
-export function registerExpenseCategoryTools(
-  server: McpServer,
-  db: PrismaClient,
-  userId: string,
-  allowMutations = false
-) {
-  server.registerTool(
-    'get_expense_categories',
-    {
-      description: 'Return all expense categories for the current user. Each category has id, label, percent, and color. Use the id as transaction.category when creating or filtering expense transactions. No parameters required.',
-      inputSchema: z.object({})
-    },
-    async () => {
-      const categories = await listExpenseCategoriesScoped(userId)
-      return toJson(categories)
-    }
-  )
+// Scope gating (shared requireScope, two layers): the read tools are
+// advertised when the principal holds `read`; every category MUTATION
+// is structural and therefore full-access only — no PAT scope grants it,
+// so a token never sees add/update/remove, and execute() re-asserts it.
+export function registerExpenseCategoryTools(server: McpServer, db: PrismaClient, principal: Principal) {
+  const userId = principal.userId
+  const can = (scope?: Scope) => requireScope(principal, scope)
+  const guard = (scope?: Scope) => { if (!requireScope(principal, scope)) throw new Forbidden() }
 
-  server.registerTool(
-    'get_expense_category_preview',
-    {
-      description: 'Show each expense category with its budget allocation amount calculated from total income. Returns totalIncome, totalAllocatedPercent, unallocatedPercent, unallocatedAmount, and a breakdown per category. No parameters required.',
-      inputSchema: z.object({})
-    },
-    async () => {
-      // Cross-resource aggregation (incomes × categories). No HTTP
-      // analog and no other caller, so kept inline rather than
-      // forcing a dedicated service.
-      const [incomes, categories] = await Promise.all([
-        db.income.findMany({ where: { user_id: userId } }),
-        db.expenseCategory.findMany({ where: { user_id: userId }, orderBy: [{ position: 'asc' }, { id: 'asc' }] })
-      ])
-      const totalIncome = incomes.reduce((sum, i) => sum + Math.abs(Number(i.amount)), 0)
-      const totalPercent = categories.reduce((s, c) => s + Number(c.percent), 0)
-      return toJson({
-        totalIncome,
-        totalAllocatedPercent: totalPercent,
-        unallocatedPercent: Math.max(0, 100 - totalPercent),
-        unallocatedAmount: (totalIncome * Math.max(0, 100 - totalPercent)) / 100,
-        categories: categories.map(c => ({
-          id: c.id,
-          label: c.label,
-          percent: Number(c.percent),
-          amount: (totalIncome * Number(c.percent)) / 100
-        }))
-      })
-    }
-  )
+  if (can('read')) {
+    server.registerTool(
+      'get_expense_categories',
+      {
+        description: 'Return all expense categories for the current user. Each category has id, label, percent, and color. Use the id as transaction.category when creating or filtering expense transactions. No parameters required.',
+        inputSchema: z.object({})
+      },
+      async () => {
+        guard('read')
+        const categories = await listExpenseCategoriesScoped(userId)
+        return toJson(categories)
+      }
+    )
 
-  // Everything below mutates category data — only register when allowed.
-  if (!allowMutations) return
+    server.registerTool(
+      'get_expense_category_preview',
+      {
+        description: 'Show each expense category with its budget allocation amount calculated from total income. Returns totalIncome, totalAllocatedPercent, unallocatedPercent, unallocatedAmount, and a breakdown per category. No parameters required.',
+        inputSchema: z.object({})
+      },
+      async () => {
+        guard('read')
+        // Cross-resource aggregation (incomes × categories). No HTTP
+        // analog and no other caller, so kept inline rather than
+        // forcing a dedicated service.
+        const [incomes, categories] = await Promise.all([
+          db.income.findMany({ where: { user_id: userId } }),
+          db.expenseCategory.findMany({ where: { user_id: userId }, orderBy: [{ position: 'asc' }, { id: 'asc' }] })
+        ])
+        const totalIncome = incomes.reduce((sum, i) => sum + Math.abs(Number(i.amount)), 0)
+        const totalPercent = categories.reduce((s, c) => s + Number(c.percent), 0)
+        return toJson({
+          totalIncome,
+          totalAllocatedPercent: totalPercent,
+          unallocatedPercent: Math.max(0, 100 - totalPercent),
+          unallocatedAmount: (totalIncome * Math.max(0, 100 - totalPercent)) / 100,
+          categories: categories.map(c => ({
+            id: c.id,
+            label: c.label,
+            percent: Number(c.percent),
+            amount: (totalIncome * Number(c.percent)) / 100
+          }))
+        })
+      }
+    )
+  }
+
+  // Category mutations are full-access only — never advertised to a PAT.
+  if (!can()) return
 
   server.registerTool(
     'add_expense_category',
     {
       description: `Create a new expense category. Color is assigned automatically based on position.
 Required: label, percent.
-The returned id is used as transaction.category when creating expense transactions.
-⚠️ WARNING: This action modifies user data. You MUST explicitly confirm with the user before calling this tool.`,
+The returned id is used as transaction.category when creating expense transactions.`,
       inputSchema: z.object({
         label: z.string().describe('(required) Category name, e.g. Taxes, Savings, Rent, Food.'),
         percent: z.number().min(0).max(100).describe('(required) Percentage of income to allocate to this category (0–100).')
       })
     },
     async ({ label, percent }) => {
+      guard()
       const category = await createExpenseCategoryScoped(userId, { label, percent })
       return toJson(category)
     }
@@ -99,8 +98,7 @@ The returned id is used as transaction.category when creating expense transactio
     {
       description: `Update an expense category by its id.
 Required: id.
-Optional: label, percent — only provided fields are updated, the rest stay unchanged.
-⚠️ WARNING: This action modifies user data. You MUST explicitly confirm with the user before calling this tool.`,
+Optional: label, percent — only provided fields are updated, the rest stay unchanged.`,
       inputSchema: z.object({
         id: z.number().int().describe('(required) ID of the expense category to update.'),
         label: optStr.describe('(optional) New category name. Omit or pass empty string to leave unchanged.'),
@@ -108,6 +106,7 @@ Optional: label, percent — only provided fields are updated, the rest stay unc
       })
     },
     async ({ id, label, percent }) => {
+      guard()
       const category = await updateExpenseCategoryScoped(userId, id, { label, percent })
       return toJson(category)
     }
@@ -116,12 +115,13 @@ Optional: label, percent — only provided fields are updated, the rest stay unc
   server.registerTool(
     'remove_expense_category',
     {
-      description: 'Delete an expense category by its id. Required: id.\n⚠️ WARNING: This action permanently deletes user data. You MUST explicitly confirm with the user before calling this tool.',
+      description: 'Delete an expense category by its id. Required: id.',
       inputSchema: z.object({
         id: z.number().int().describe('(required) ID of the expense category to delete.')
       })
     },
     async ({ id }) => {
+      guard()
       const result = await deleteExpenseCategoryScoped(userId, id)
       return toJson(result)
     }

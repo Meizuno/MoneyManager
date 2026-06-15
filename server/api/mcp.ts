@@ -1,46 +1,29 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { getHeader } from 'h3'
 import { registerTransactionTools } from '../utils/mcp/transactions'
 import { registerExpenseCategoryTools } from '../utils/mcp/expense-categories'
 import { registerIncomeCategoryTools } from '../utils/mcp/income-categories'
+import { resolvePrincipal } from '../utils/principal'
 
-// MCP endpoint. Two auth paths:
-//   - Trusted service: x-api-key matches NUXT_MCP_API_KEY plus an
-//     x-user-id header → bypass session auth, use the header user.
-//   - Browser session: fall through to the standard cookie-based
-//     authenticate(), so the same URL works for direct access.
-// Every tool runs in the context of `userId`, which is what the
-// scoped data-access utilities expect as the viewer id.
+// MCP endpoint. Authenticates ONLY via a PAT (Authorization: Bearer
+// mm_pat_…), a Bearer JWT, or the session cookie — never a
+// caller-asserted user id. resolvePrincipal throws 401 when no valid
+// credential is present (the old x-api-key + x-user-id path is gone).
+//
+// The principal's scopes drive tool registration: each register fn
+// advertises only the tools the scopes permit, and every tool re-checks
+// scope at execute time (defense in depth). A PAT therefore can never
+// see — let alone run — update/delete or any category-mutation tool;
+// those are full-access only.
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const apiKey = getHeader(event, 'x-api-key')
-  const headerUserId = getHeader(event, 'x-user-id')
-
-  let userId: string
-  if (config.mcpApiKey && apiKey === config.mcpApiKey && headerUserId) {
-    userId = headerUserId
-  }
-  else {
-    // The auth middleware skips /api/mcp (trusted callers shouldn't
-    // pay a validate-roundtrip for nothing), so call authenticate()
-    // explicitly for the session path.
-    const user = await authenticate(event)
-    if (!user) throw new Unauthorized()
-    userId = user.id
-  }
+  const principal = await resolvePrincipal(event)
 
   const db = getPrisma()
   const server = new McpServer({ name: 'money-manager', version: '1.0.0' })
 
-  // Category-mutating tools are off unless explicitly enabled — the
-  // server, not a prompt note, decides whether the model may create or
-  // delete categories.
-  const allowCategoryMutations = config.mcpAllowCategoryMutations === true
-
-  registerTransactionTools(server, db, userId)
-  registerExpenseCategoryTools(server, db, userId, allowCategoryMutations)
-  registerIncomeCategoryTools(server, db, userId, allowCategoryMutations)
+  registerTransactionTools(server, db, principal)
+  registerExpenseCategoryTools(server, db, principal)
+  registerIncomeCategoryTools(server, db, principal)
 
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
   await server.connect(transport)
