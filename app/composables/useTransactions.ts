@@ -228,8 +228,8 @@ export const useTransactions = () => {
 
   const loadIncomeCategories = async () => {
     try {
-      const data = await apiFetch<{ categories: { id: number; label: string; color: string }[] }>("/api/income-categories");
-      incomeCategories.value = data.categories ?? [];
+      const data = await apiFetch<{ id: number; label: string; color: string }[]>("/api/income-categories");
+      incomeCategories.value = data ?? [];
     } catch { incomeCategories.value = []; }
   };
 

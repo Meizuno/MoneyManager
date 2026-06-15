@@ -1,4 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const categories = await listIncomeCategories(event)
-  return { categories }
+  // Returns the category array directly (no wrapper) — consistent with
+  // the expense-categories endpoint.
+  return listIncomeCategories(event)
 })

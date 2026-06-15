@@ -114,8 +114,8 @@ function colorOfCategory(cat: Category) {
 
 async function loadCategoriesFromApi(): Promise<Category[]> {
   try {
-    const data = await apiFetch<{ categories: Category[] }>("/api/income-categories");
-    return data.categories ?? [];
+    const data = await apiFetch<Category[]>("/api/income-categories");
+    return data ?? [];
   } catch { return []; }
 }
 
