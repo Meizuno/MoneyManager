@@ -63,3 +63,23 @@ model IncomeCategory {
   @@index([user_id])
   @@map("income_categories")
 }
+
+// Scoped personal access tokens. Only the sha256 hash of the token is
+// stored — the raw `mm_pat_…` value is shown to the user once at
+// creation and never persisted. `scopes` holds the granted scope
+// strings ('read' | 'add'); a JWT/session principal is full-access and
+// has no row here.
+model PersonalAccessToken {
+  id           String    @id @default(cuid())
+  user_id      String
+  name         String
+  token_hash   String    @unique
+  scopes       String[]  @default([])
+  created_at   DateTime  @default(now())
+  last_used_at DateTime?
+  expires_at   DateTime?
+  revoked_at   DateTime?
+
+  @@index([user_id])
+  @@map("personal_access_tokens")
+}

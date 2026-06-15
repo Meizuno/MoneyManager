@@ -30,6 +30,22 @@ export class Unauthorized extends DomainError {
   }
 }
 
+// 403 — the principal is authenticated but its scopes don't permit the
+// operation (e.g. a read-only PAT attempting a write). Distinct from 401:
+// the credentials are valid, they're just not sufficient.
+export class Forbidden extends DomainError {
+  constructor(message?: string) {
+    super(403, 'Forbidden', message ?? 'This token is not permitted to perform this action')
+  }
+}
+
+// 404 — a personal access token row doesn't exist for this user.
+export class PatNotFound extends DomainError {
+  constructor(id?: string) {
+    super(404, 'Token not found', id ? `Token ${id} not found` : undefined)
+  }
+}
+
 // 404 — a transaction (income or expense) row doesn't exist for this
 // user. Income/Expense live in separate tables but are one logical
 // resource over HTTP/MCP; the not-found message stays generic.
