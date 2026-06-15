@@ -5,7 +5,7 @@ import type {
   UpdateExpenseCategoryInput
 } from '#shared/schemas/expense-category'
 import { getPrisma } from './db'
-import { ExpenseCategoryNotFound } from './errors'
+import { CategoryInUse, ExpenseCategoryNotFound } from './errors'
 import { nextColor } from './salesSplitColors'
 
 // Single home for expense-category (sales-split rule) data-access.
@@ -111,7 +111,12 @@ export async function deleteExpenseCategoryScoped(
   viewerId: string,
   id: number
 ): Promise<{ deleted: number }> {
-  const { count } = await getPrisma().expenseCategory.deleteMany({
+  const db = getPrisma()
+  // Refuse to delete a category still referenced by expense transactions —
+  // category reads are strict, so orphaning a reference would break them.
+  const inUse = await db.expense.count({ where: { user_id: viewerId, category: id } })
+  if (inUse > 0) throw new CategoryInUse(id, inUse)
+  const { count } = await db.expenseCategory.deleteMany({
     where: { id, user_id: viewerId }
   })
   if (count === 0) throw new ExpenseCategoryNotFound(id)

@@ -5,7 +5,7 @@ import {
   listTransactionsScoped,
   updateTransactionScoped
 } from '../../../server/utils/transactions'
-import { CategoryNotFound } from '../../../server/utils/errors'
+import { CategoryNotFound, CategoryRequired } from '../../../server/utils/errors'
 
 // Mock the Prisma accessor so the scoped data-access runs against an
 // in-memory fake. vi.hoisted gives the mock factory a stable handle it
@@ -24,15 +24,27 @@ function makeRow(over: Record<string, unknown> = {}) {
     name: 'Coffee',
     amount: 42,
     currency: null,
-    category: 0,
+    // A real, resolvable category by default (reads are strict now).
+    category: 3,
     created_at: new Date(0),
     ...over
   }
 }
 
+// Label map the strict read projection resolves against. Covers the ids
+// used across these tests; rows with an id outside this set (0, 99) are
+// treated as unresolved and make toTransaction throw.
+const LABELS = [
+  { id: 3, label: 'Food' },
+  { id: 4, label: 'Rent' },
+  { id: 5, label: 'Salary' },
+  { id: 8, label: 'Misc' }
+]
+
 // Minimal fake Prisma. Every method is a spy; category existence probes
 // default to "not found" (findFirst → null) so tests opt into existence
-// explicitly. create/update echo a complete row so toTransaction works.
+// explicitly. create/update echo a complete row so toTransaction works,
+// and the label findMany defaults to LABELS so strict reads resolve.
 function makeDb() {
   const create = vi.fn(async ({ data }: { data: Record<string, unknown> }) => makeRow(data))
   const update = vi.fn(async ({ data }: { data: Record<string, unknown> }) => makeRow(data))
@@ -51,11 +63,11 @@ function makeDb() {
     },
     expenseCategory: {
       findFirst: vi.fn(async () => null),
-      findMany: vi.fn(async (): Promise<{ id: number, label: string }[]> => [])
+      findMany: vi.fn(async (): Promise<{ id: number, label: string }[]> => LABELS)
     },
     incomeCategory: {
       findFirst: vi.fn(async () => null),
-      findMany: vi.fn(async (): Promise<{ id: number, label: string }[]> => [])
+      findMany: vi.fn(async (): Promise<{ id: number, label: string }[]> => LABELS)
     }
   }
 }
@@ -77,11 +89,11 @@ describe('createTransactionScoped — category integrity', () => {
     expect(db.expense.create).not.toHaveBeenCalled()
   })
 
-  it('allows category 0 (uncategorised) without requiring a row', async () => {
-    await createTransactionScoped('u1', { ...base, type: 'expense', category: 0 })
-    expect(db.expenseCategory.findFirst).not.toHaveBeenCalled()
-    expect(db.expense.create).toHaveBeenCalledOnce()
-    expect(db.expense.create.mock.calls[0][0].data.category).toBe(0)
+  it('rejects category 0 (uncategorised) on create — a real category is required', async () => {
+    await expect(
+      createTransactionScoped('u1', { ...base, type: 'expense', category: 0 })
+    ).rejects.toBeInstanceOf(CategoryRequired)
+    expect(db.expense.create).not.toHaveBeenCalled()
   })
 
   it('writes when the category exists for the resolved type', async () => {
@@ -101,12 +113,14 @@ describe('createTransactionScoped — category integrity', () => {
 
 describe('createTransactionScoped — currency default', () => {
   it('defaults to CZK when no currency is supplied', async () => {
-    await createTransactionScoped('u1', { ...base, type: 'expense', category: 0 })
+    db.expenseCategory.findFirst.mockResolvedValue({ id: 3 })
+    await createTransactionScoped('u1', { ...base, type: 'expense', category: 3 })
     expect(db.expense.create.mock.calls[0][0].data.currency).toBe('CZK')
   })
 
   it('keeps an explicitly supplied currency', async () => {
-    await createTransactionScoped('u1', { ...base, type: 'expense', category: 0, currency: 'USD' })
+    db.expenseCategory.findFirst.mockResolvedValue({ id: 3 })
+    await createTransactionScoped('u1', { ...base, type: 'expense', category: 3, currency: 'USD' })
     expect(db.expense.create.mock.calls[0][0].data.currency).toBe('USD')
   })
 })
@@ -146,11 +160,12 @@ describe('updateTransactionScoped — category integrity', () => {
     expect(db.expense.update).not.toHaveBeenCalled()
   })
 
-  it('allows category 0 on an in-place update', async () => {
+  it('rejects category 0 on an in-place update (no uncategorised)', async () => {
     db.expense.findFirst.mockResolvedValue(makeRow({ category: 4 }))
-    await updateTransactionScoped('u1', 7, { category: 0 })
-    expect(db.expense.update).toHaveBeenCalledOnce()
-    expect(db.expense.update.mock.calls[0][0].data.category).toBe(0)
+    await expect(
+      updateTransactionScoped('u1', 7, { category: 0 })
+    ).rejects.toBeInstanceOf(CategoryNotFound)
+    expect(db.expense.update).not.toHaveBeenCalled()
   })
 
   it('skips the category probe on a no-op update (no category, no type change)', async () => {
@@ -184,15 +199,15 @@ describe('category join — reads return { id, label }', () => {
     expect(item.category).toEqual({ id: 3, label: 'Food' })
   })
 
-  it('returns id 0 with an empty label for the uncategorised sentinel', async () => {
-    const item = await createTransactionScoped('u1', { ...base, type: 'expense', category: 0 })
-    expect(item.category).toEqual({ id: 0, label: '' })
+  it('reads strictly — a row whose category cannot be resolved (id 0) errors', async () => {
+    db.expense.findMany = vi.fn(async () => [makeRow({ id: 7, category: 0 })])
+    await expect(listTransactionsScoped('u1', { type: 'expense' }))
+      .rejects.toBeInstanceOf(CategoryNotFound)
   })
 
-  it('keeps the id but empties the label when the row no longer exists (deleted)', async () => {
+  it('reads strictly — a deleted / unknown category id errors (no empty-label placeholder)', async () => {
     db.expense.findMany = vi.fn(async () => [makeRow({ id: 7, category: 99 })])
-    db.expenseCategory.findMany.mockResolvedValue([{ id: 3, label: 'Food' }])
-    const items = await listTransactionsScoped('u1', { type: 'expense' })
-    expect(items[0]!.category).toEqual({ id: 99, label: '' })
+    await expect(listTransactionsScoped('u1', { type: 'expense' }))
+      .rejects.toBeInstanceOf(CategoryNotFound)
   })
 })

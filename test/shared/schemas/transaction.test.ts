@@ -47,14 +47,9 @@ describe('createTransactionSchema — category input', () => {
     expect(createTransactionSchema.safeParse({ ...base, category: 2.5 }).success).toBe(false)
   })
 
-  it('resolves omitted / empty category to uncategorised (undefined → 0 downstream)', () => {
-    const omitted = createTransactionSchema.safeParse({ ...base })
-    expect(omitted.success).toBe(true)
-    expect(omitted.success && omitted.data.category).toBeUndefined()
-
-    const empty = createTransactionSchema.safeParse({ ...base, category: '' })
-    expect(empty.success).toBe(true)
-    expect(empty.success && empty.data.category).toBeUndefined()
+  it('requires a category — omitted or empty fails', () => {
+    expect(createTransactionSchema.safeParse({ ...base }).success).toBe(false)
+    expect(createTransactionSchema.safeParse({ ...base, category: '' }).success).toBe(false)
   })
 
   it('accepts the numeric ids the client form sends (string or number)', () => {
@@ -67,8 +62,10 @@ describe('createTransactionSchema — category input', () => {
 })
 
 describe('updateTransactionSchema — category input (partial)', () => {
-  it('rejects a non-numeric category but allows it to be omitted', () => {
+  it('rejects a non-numeric category but allows it to be omitted or empty', () => {
     expect(updateTransactionSchema.safeParse({ category: 'Food' }).success).toBe(false)
+    // Unlike create, update never requires a category.
     expect(updateTransactionSchema.safeParse({ name: 'Tea' }).success).toBe(true)
+    expect(updateTransactionSchema.safeParse({ category: '' }).success).toBe(true)
   })
 })

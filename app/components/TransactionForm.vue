@@ -60,7 +60,13 @@ onMounted(() => {
 
 const formDateOpen = ref(false);
 const isValid = computed(
-  () => Boolean(form.value.date) && Boolean(form.value.name) && form.value.amount !== null,
+  () =>
+    Boolean(form.value.date)
+    && Boolean(form.value.name)
+    && form.value.amount !== null
+    // Create requires a real category; disable submit when none is picked
+    // (e.g. the user has no categories of this type yet).
+    && Boolean(form.value.category),
 );
 
 const safeParseDate = (value: string) => {
@@ -127,7 +133,9 @@ const submitForm = () => {
     amount: form.value.amount ?? "",
     currency: form.value.currency,
     type: form.value.type as "income" | "expense",
-    category: form.value.category || undefined,
+    // Category is required on create — always send the selected id (the
+    // submit button is disabled when none is available, see isValid).
+    category: form.value.category,
   });
   clearForm();
 };

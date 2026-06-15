@@ -100,14 +100,15 @@ All parameters are optional — omitting a parameter returns all records without
       'create_transaction',
       {
         description: `Create a new income or expense transaction.
-Required: date, name, amount, type.
-Optional: category (ID from get_expense_categories or get_income_categories depending on type), currency (3-letter ISO code, defaults to CZK if omitted).`,
+Required: date, name, amount, type, category.
+The category must be an EXISTING category id (from get_expense_categories or get_income_categories depending on type) — there is no uncategorised default on create.
+Optional: currency (3-letter ISO code, defaults to CZK if omitted).`,
         inputSchema: z.object({
           date: z.string().describe('(required) Date in YYYY-MM-DD format.'),
           name: z.string().describe('(required) Transaction description.'),
           amount: z.number().positive().describe('(required) Amount as a positive number.'),
           type: z.enum(['income', 'expense']).describe("(required) Transaction type: 'income' or 'expense'."),
-          category: optCategoryId.describe('(optional) Category ID. Use get_expense_categories or get_income_categories to find valid IDs. Defaults to 0 (uncategorised) if omitted or empty.'),
+          category: z.union([z.string(), z.number().int()]).describe('(required) An existing category ID from get_expense_categories or get_income_categories (matching the type). Uncategorised (0) is not allowed.'),
           currency: optStr.describe('(optional) 3-letter ISO currency code, e.g. CZK, USD, EUR. Omit or pass empty string to leave unset.')
         })
       },
