@@ -1,4 +1,6 @@
 export default defineEventHandler(async (event) => {
-  const categories = await listExpenseCategories(event)
-  return { categories }
+  // Returns the category array directly (no wrapper) — consistent with
+  // the income-categories endpoint. This is the endpoint the iPhone
+  // shortcut calls.
+  return listExpenseCategories(event)
 })
