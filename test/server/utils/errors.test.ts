@@ -4,8 +4,10 @@ import {
   CategoryNotFound,
   DomainError,
   ExpenseCategoryNotFound,
+  Forbidden,
   IncomeCategoryNotFound,
   InvalidCategoryInput,
+  PatNotFound,
   TransactionNotFound,
   Unauthorized
 } from '../../../server/utils/errors'
@@ -48,6 +50,20 @@ describe('domain errors', () => {
     expect(err.statusCode).toBe(401)
     expect(err.statusMessage).toBe('Unauthorized')
     expect(err.name).toBe('Unauthorized')
+  })
+
+  it('Forbidden is a 403 (valid credentials, insufficient scope)', () => {
+    const err = new Forbidden()
+    expect(err.statusCode).toBe(403)
+    expect(err.statusMessage).toBe('Forbidden')
+    expect(err).toBeInstanceOf(DomainError)
+  })
+
+  it('PatNotFound is a 404 carrying the id', () => {
+    const err = new PatNotFound('pat_42')
+    expect(err.statusCode).toBe(404)
+    expect(err.statusMessage).toBe('Token not found')
+    expect(err.message).toContain('pat_42')
   })
 
   it('are recognized as H3 errors so Nitro renders the right status', () => {

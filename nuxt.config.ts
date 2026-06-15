@@ -31,15 +31,6 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     authServiceUrl: "http://localhost:8080",
-    mcpApiKey: "",
-    // Gate the category-MUTATING MCP tools (add/update/remove expense &
-    // income categories). Off by default: the chat model only needs to
-    // read categories and reference their ids on transactions — letting
-    // it create/rename/delete categories was guarded by a prompt-only
-    // "confirm with the user" note the server never enforced. Set
-    // NUXT_MCP_ALLOW_CATEGORY_MUTATIONS=true to expose them. Boolean
-    // default → Nuxt coerces the env string to a real boolean.
-    mcpAllowCategoryMutations: false,
   },
 
   // Auto-import server-side use-case functions from server/services

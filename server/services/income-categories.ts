@@ -4,7 +4,7 @@ import type {
   CreateIncomeCategoryInput,
   UpdateIncomeCategoryInput
 } from '#shared/schemas/income-category'
-import { requireAuthUser } from '../utils/auth'
+import { authorize } from '../utils/principal'
 import {
   createIncomeCategoryScoped,
   deleteIncomeCategoryScoped,
@@ -12,33 +12,31 @@ import {
   updateIncomeCategoryScoped
 } from '../utils/income-categories'
 
-// HTTP use-cases for the IncomeCategory resource. Thin wrappers over
-// the shared, transport-agnostic data-access in
-// ../utils/income-categories. Add the HTTP auth gate and pass the
-// viewer; reject the "empty update" case that zod's optional fields
-// would otherwise let through.
+// HTTP use-cases for the IncomeCategory resource. Listing is a `read`
+// scope; every mutation is structural and therefore full-access only
+// (no scope argument → PATs are denied by default).
 
 export async function listIncomeCategories(event: H3Event) {
-  const user = await requireAuthUser(event)
-  return listIncomeCategoriesScoped(user.id)
+  const { userId } = await authorize(event, 'read')
+  return listIncomeCategoriesScoped(userId)
 }
 
 export async function createIncomeCategory(event: H3Event, input: CreateIncomeCategoryInput) {
-  const user = await requireAuthUser(event)
-  return createIncomeCategoryScoped(user.id, input)
+  const { userId } = await authorize(event)
+  return createIncomeCategoryScoped(userId, input)
 }
 
 export async function updateIncomeCategory(event: H3Event, id: number, input: UpdateIncomeCategoryInput) {
-  const user = await requireAuthUser(event)
+  const { userId } = await authorize(event)
   // zod allows the empty object (every field optional); a PUT with no
   // updatable fields is a client mistake, not a no-op. Surface as 400.
   if (Object.keys(input).length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'Nothing to update' })
   }
-  return updateIncomeCategoryScoped(user.id, id, input)
+  return updateIncomeCategoryScoped(userId, id, input)
 }
 
 export async function deleteIncomeCategory(event: H3Event, id: number) {
-  const user = await requireAuthUser(event)
-  return deleteIncomeCategoryScoped(user.id, id)
+  const { userId } = await authorize(event)
+  return deleteIncomeCategoryScoped(userId, id)
 }
