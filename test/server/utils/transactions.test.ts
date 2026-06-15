@@ -99,6 +99,18 @@ describe('createTransactionScoped — category integrity', () => {
   })
 })
 
+describe('createTransactionScoped — currency default', () => {
+  it('defaults to CZK when no currency is supplied', async () => {
+    await createTransactionScoped('u1', { ...base, type: 'expense', category: 0 })
+    expect(db.expense.create.mock.calls[0][0].data.currency).toBe('CZK')
+  })
+
+  it('keeps an explicitly supplied currency', async () => {
+    await createTransactionScoped('u1', { ...base, type: 'expense', category: 0, currency: 'USD' })
+    expect(db.expense.create.mock.calls[0][0].data.currency).toBe('USD')
+  })
+})
+
 describe('updateTransactionScoped — category integrity', () => {
   it('rejects a category id that is valid for the old type but not the new one after a type change', async () => {
     // Existing row is an income; category 5 exists as an income category.
