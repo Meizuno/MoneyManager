@@ -7,6 +7,7 @@ import {
   listTransactionsScoped,
   updateTransactionScoped
 } from '../transactions'
+import { INVALID_CATEGORY_ID, parseCategoryId } from '#shared/schemas/transaction'
 import { Forbidden, InvalidCategoryInput } from '../errors'
 import { requireScope, type Principal, type Scope } from '../scopes'
 import { optStr, optCategoryId, toJson } from './helpers'
@@ -25,26 +26,16 @@ import { optStr, optCategoryId, toJson } from './helpers'
 // can never see or run them).
 
 // optCategoryId's transform yields `string | number | undefined`, but
-// the scoped helpers expect a `number | undefined`. Collapse here at
-// the boundary so the downstream signature stays clean.
-//
-// Reject anything that isn't a non-negative integer id instead of
-// silently coercing it to 0 (uncategorised). The old coercion hid the
-// model's mistakes — passing a category NAME like "Food" looked like a
-// success but landed in the wrong bucket. Now: empty/omitted →
-// undefined (the caller maps that to 0); a valid integer → that integer
-// (rule-1 existence check runs downstream); anything else → a tool
-// error the model must fix by fetching a real id.
+// the scoped helpers expect a `number | undefined`. Collapse here at the
+// boundary via the SHARED parseCategoryId — the exact same parser the
+// REST schema uses, so the two surfaces can't drift — mapping its
+// invalid signal to the existing InvalidCategoryInput tool error.
+// empty/omitted → undefined (caller maps to 0); valid integer → that
+// integer (existence check runs downstream); anything else → tool error.
 export function toCategoryId(v: string | number | undefined): number | undefined {
-  if (v === undefined) return undefined
-  if (typeof v === 'number') {
-    if (Number.isInteger(v) && v >= 0) return v
-    throw new InvalidCategoryInput()
-  }
-  const t = v.trim()
-  if (t === '') return undefined
-  if (/^\d+$/.test(t)) return Number(t)
-  throw new InvalidCategoryInput()
+  const parsed = parseCategoryId(v)
+  if (parsed === INVALID_CATEGORY_ID) throw new InvalidCategoryInput()
+  return parsed
 }
 
 export function registerTransactionTools(server: McpServer, db: PrismaClient, principal: Principal) {
