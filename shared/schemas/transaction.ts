@@ -78,6 +78,12 @@ const categorySchema = z.union([z.number(), z.string()])
     return parsed
   })
 
+// Default currency applied when a transaction is created without one —
+// the app is CZK-centric (the form pre-fills it, display falls back to
+// it). Creating via the API or MCP with no currency stores this rather
+// than null.
+export const DEFAULT_CURRENCY = 'CZK'
+
 // Currency is optional and nullable; empty/whitespace collapses to null.
 const currencySchema = z.string()
   .transform(v => v.trim())

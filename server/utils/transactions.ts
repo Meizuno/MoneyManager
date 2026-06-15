@@ -6,6 +6,7 @@ import type {
   TransactionType,
   UpdateTransactionInput
 } from '#shared/schemas/transaction'
+import { DEFAULT_CURRENCY } from '#shared/schemas/transaction'
 import { getPrisma } from './db'
 import { CategoryNotFound, TransactionNotFound } from './errors'
 import { expenseCategoryExists, expenseCategoryLabels } from './expense-categories'
@@ -171,7 +172,9 @@ export async function createTransactionScoped(
     date: new Date(input.date),
     name: input.name,
     amount: Math.abs(input.amount),
-    currency: input.currency ?? null,
+    // Default to CZK on create when none is given (covers both the HTTP
+    // API and MCP) — matches the form's pre-fill and the display fallback.
+    currency: input.currency ?? DEFAULT_CURRENCY,
     category
   }
   const db = getPrisma()
