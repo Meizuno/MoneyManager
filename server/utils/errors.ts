@@ -84,6 +84,32 @@ export class CategoryNotFound extends DomainError {
   }
 }
 
+// 409 — a category can't be deleted because transactions still reference
+// it. Deleting it would orphan those rows (whose reads are now strict),
+// so the delete is refused until they're recategorised.
+export class CategoryInUse extends DomainError {
+  constructor(id: number | string, count: number) {
+    super(
+      409,
+      'Category in use',
+      `Category ${id} is used by ${count} transaction(s) and cannot be deleted`
+    )
+  }
+}
+
+// 400 — a transaction create supplied no real category (omitted, empty,
+// or the 0/uncategorised sentinel). Creates must reference an existing
+// category; updates may still leave it unset.
+export class CategoryRequired extends DomainError {
+  constructor() {
+    super(
+      400,
+      'Category required',
+      'category is required and must be an existing category id from get_expense_categories / get_income_categories'
+    )
+  }
+}
+
 // 400 — category input that isn't a numeric id reached the MCP boundary
 // (e.g. the model passed a category NAME like "Food"). Rejected loudly
 // rather than silently coerced to 0, so the mistake surfaces as a tool

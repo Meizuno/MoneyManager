@@ -78,6 +78,27 @@ const categorySchema = z.union([z.number(), z.string()])
     return parsed
   })
 
+// Like categorySchema but REQUIRED: create demands a category, so an
+// empty/omitted value is a validation error rather than "uncategorised".
+// (The id must also *exist* — that's the downstream assertCategoryValid
+// check; id 0 / uncategorised is rejected for creates in the service.)
+const requiredCategorySchema = z.union([z.number(), z.string()])
+  .transform((v, ctx) => {
+    const parsed = parseCategoryId(v)
+    if (parsed === INVALID_CATEGORY_ID) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'category must be a numeric id from get_expense_categories / get_income_categories'
+      })
+      return z.NEVER
+    }
+    if (parsed === undefined) {
+      ctx.addIssue({ code: 'custom', message: 'category is required' })
+      return z.NEVER
+    }
+    return parsed
+  })
+
 // Default currency applied when a transaction is created without one —
 // the app is CZK-centric (the form pre-fills it, display falls back to
 // it). Creating via the API or MCP with no currency stores this rather
@@ -100,7 +121,10 @@ export const createTransactionSchema = z.object({
   amount: amountSchema,
   currency: currencySchema,
   type: transactionTypeSchema.optional(),
-  category: categorySchema.optional()
+  // Required on create: every new transaction must reference a real
+  // category (the service additionally rejects 0/uncategorised and
+  // checks existence).
+  category: requiredCategorySchema
 })
 // Post-validation type — what the service receives (numbers are
 // already coerced, strings already trimmed). Use server-side.
@@ -114,7 +138,11 @@ export type CreateTransactionPayload = z.input<typeof createTransactionSchema>
 // PUT /api/transactions/[id]. Same shape as create but every field
 // optional: only the keys present in the body are written. Type
 // changes move the row between the income/expense tables.
-export const updateTransactionSchema = createTransactionSchema.partial()
+// Update keeps category OPTIONAL (only create requires it): override the
+// create's required-category field back to the optional categorySchema.
+export const updateTransactionSchema = createTransactionSchema.partial().extend({
+  category: categorySchema.optional()
+})
 export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>
 export type UpdateTransactionPayload = z.input<typeof updateTransactionSchema>
 

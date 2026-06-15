@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CreateTransactionPayload } from "#shared/schemas/transaction";
+import type { CreateTransactionPayload, UpdateTransactionPayload } from "#shared/schemas/transaction";
 
 const {
   transactions,
@@ -34,7 +34,7 @@ const handleCreate = async (payload: CreateTransactionPayload) => {
   await createTransaction(payload);
 };
 
-const handleUpdate = async (payload: { id: number; input: CreateTransactionPayload }) => {
+const handleUpdate = async (payload: { id: number; input: UpdateTransactionPayload }) => {
   await updateTransaction(payload.id, payload.input);
 };
 

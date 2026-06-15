@@ -1,4 +1,4 @@
-import type { Transaction, CreateTransactionPayload } from "#shared/schemas/transaction";
+import type { Transaction, CreateTransactionPayload, UpdateTransactionPayload } from "#shared/schemas/transaction";
 
 export const useTransactions = () => {
   const { t } = useI18n();
@@ -281,7 +281,7 @@ export const useTransactions = () => {
     }
   };
 
-  const updateTransaction = async (id: number, input: CreateTransactionPayload) => {
+  const updateTransaction = async (id: number, input: UpdateTransactionPayload) => {
     resetMessages();
     try {
       await apiFetch(`/api/transactions/${id}`, { method: "PUT", body: input });

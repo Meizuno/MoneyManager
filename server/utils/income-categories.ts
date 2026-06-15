@@ -4,7 +4,7 @@ import type {
   IncomeCategory
 } from '#shared/schemas/income-category'
 import { getPrisma } from './db'
-import { IncomeCategoryNotFound } from './errors'
+import { CategoryInUse, IncomeCategoryNotFound } from './errors'
 import { nextColor } from './salesSplitColors'
 
 // Single home for income-category data-access. The user_id scope, the
@@ -101,12 +101,17 @@ export async function updateIncomeCategoryScoped(
   return toIncomeCategory(row)
 }
 
-// Atomic scoped delete. `count === 0` is the not-found signal.
+// Atomic scoped delete. `count === 0` is the not-found signal. Refuses
+// to delete while income transactions still reference the category —
+// strict reads can't tolerate an orphaned reference.
 export async function deleteIncomeCategoryScoped(
   viewerId: string,
   id: number
 ): Promise<{ deleted: number }> {
-  const { count } = await getPrisma().incomeCategory.deleteMany({
+  const db = getPrisma()
+  const inUse = await db.income.count({ where: { user_id: viewerId, category: id } })
+  if (inUse > 0) throw new CategoryInUse(id, inUse)
+  const { count } = await db.incomeCategory.deleteMany({
     where: { id, user_id: viewerId }
   })
   if (count === 0) throw new IncomeCategoryNotFound(id)

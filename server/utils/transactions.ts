@@ -8,7 +8,7 @@ import type {
 } from '#shared/schemas/transaction'
 import { DEFAULT_CURRENCY } from '#shared/schemas/transaction'
 import { getPrisma } from './db'
-import { CategoryNotFound, TransactionNotFound } from './errors'
+import { CategoryNotFound, CategoryRequired, TransactionNotFound } from './errors'
 import { expenseCategoryExists, expenseCategoryLabels } from './expense-categories'
 import { incomeCategoryExists, incomeCategoryLabels } from './income-categories'
 
@@ -35,11 +35,15 @@ type DbRow = {
 }
 
 // Convert a DB row + known type into the wire-format Transaction. The
-// `category` field carries both the stored id and its joined label.
-// `labels` is the id → label map for the row's type; id 0 is the
-// "uncategorised" sentinel and a since-deleted id resolves to an empty
-// label (id preserved either way).
+// `category` field carries the stored id and its joined label, resolved
+// STRICTLY: every transaction must reference a real category, so a row
+// whose id has no matching label (the 0/uncategorised sentinel, or a
+// since-deleted category) is a data-integrity error rather than an
+// `{ id, label: '' }` placeholder. Writes enforce existence and category
+// deletion is blocked while in use, so this should never fire in practice.
 function toTransaction(row: DbRow, type: TransactionType, labels: Map<number, string>): Transaction {
+  const label = labels.get(row.category)
+  if (label === undefined) throw new CategoryNotFound(type, row.category)
   return {
     id: row.id,
     date: row.date.toISOString().slice(0, 10),
@@ -47,10 +51,7 @@ function toTransaction(row: DbRow, type: TransactionType, labels: Map<number, st
     amount: Number(row.amount),
     currency: row.currency,
     type,
-    category: {
-      id: row.category,
-      label: row.category === 0 ? '' : (labels.get(row.category) ?? '')
-    },
+    category: { id: row.category, label },
     created_at: row.created_at.toISOString()
   }
 }
@@ -73,16 +74,13 @@ function rowDataFromInput(input: CreateTransactionInput | UpdateTransactionInput
 // Enforce category integrity before a write: the supplied category must
 // belong to the viewer AND live in the table matching the resolved
 // transaction type (expense → expense_categories, income →
-// income_categories). Category 0 is the explicit "uncategorised"
-// sentinel and never needs a row. Anything else that doesn't resolve is
-// a CategoryNotFound — the only guardrail used to be prompt text, so a
-// bad id (or one valid only for the other type) could be persisted.
+// income_categories). There is no uncategorised sentinel — 0 has no row
+// and so fails this check like any other non-existent id (CategoryNotFound).
 async function assertCategoryValid(
   viewerId: string,
   type: TransactionType,
   category: number
 ): Promise<void> {
-  if (category === 0) return
   const exists = type === 'expense'
     ? await expenseCategoryExists(viewerId, category)
     : await incomeCategoryExists(viewerId, category)
@@ -166,6 +164,10 @@ export async function createTransactionScoped(
 ): Promise<Transaction> {
   const type = deriveType(input)
   const category = input.category ?? 0
+  // Create requires a real, existing category: reject omitted / 0
+  // (uncategorised) here, then assertCategoryValid confirms the id exists
+  // for the resolved type. Updates still allow leaving it uncategorised.
+  if (!category) throw new CategoryRequired()
   await assertCategoryValid(viewerId, type, category)
   const data = {
     user_id: viewerId,
