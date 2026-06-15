@@ -34,15 +34,48 @@ const amountSchema = z.union([z.number(), z.string()])
     return n
   })
 
-// Category: accept either a non-negative int or a numeric string;
-// anything else collapses to 0 (the "uncategorised" bucket) — same
-// behaviour as the old normalizeTransactionInput, just expressed
-// declaratively.
-const categorySchema = z.union([z.number().int(), z.string()])
-  .transform((v) => {
-    if (typeof v === 'number') return v >= 0 && Number.isInteger(v) ? v : 0
-    const trimmed = v.trim()
-    return /^\d+$/.test(trimmed) ? Number(trimmed) : 0
+// Sentinel returned by parseCategoryId when the input is present but
+// isn't a usable category id (a non-numeric string like "Food", or a
+// negative / non-integer number). Distinct from `undefined`, which means
+// "no category supplied" (→ uncategorised).
+export const INVALID_CATEGORY_ID = Symbol('invalid-category-id')
+
+// The single canonical category-id parser, shared by the REST schema
+// (categorySchema, below) and the MCP tool boundary (toCategoryId), so
+// the two surfaces can't drift:
+//   - undefined / empty-or-whitespace string → undefined (uncategorised)
+//   - a non-negative integer, or a numeric string → that integer
+//   - anything else → INVALID_CATEGORY_ID
+// The existence check (assertCategoryValid → CategoryNotFound) is a
+// separate, downstream concern and is unaffected by this.
+export function parseCategoryId(
+  v: string | number | undefined
+): number | undefined | typeof INVALID_CATEGORY_ID {
+  if (v === undefined) return undefined
+  if (typeof v === 'number') {
+    return Number.isInteger(v) && v >= 0 ? v : INVALID_CATEGORY_ID
+  }
+  const trimmed = v.trim()
+  if (trimmed === '') return undefined
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : INVALID_CATEGORY_ID
+}
+
+// Category: a non-negative integer id or a numeric string; empty /
+// omitted means uncategorised. Anything else (e.g. a category NAME like
+// "Food", a negative or non-integer) is REJECTED as a validation issue —
+// the same rule the MCP boundary enforces, via the shared parseCategoryId
+// — rather than silently collapsing to 0.
+const categorySchema = z.union([z.number(), z.string()])
+  .transform((v, ctx) => {
+    const parsed = parseCategoryId(v)
+    if (parsed === INVALID_CATEGORY_ID) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'category must be a numeric id from get_expense_categories / get_income_categories'
+      })
+      return z.NEVER
+    }
+    return parsed
   })
 
 // Currency is optional and nullable; empty/whitespace collapses to null.
