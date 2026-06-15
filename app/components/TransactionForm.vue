@@ -160,7 +160,7 @@ const submitForm = () => {
               </UInputDate>
             </template>
             <template #content>
-              <UCalendar v-model="formDateValue" />
+              <UCalendar v-model="formDateValue" locale="cs" />
             </template>
           </UPopover>
         </UFormField>

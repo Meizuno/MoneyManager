@@ -200,7 +200,7 @@ const submitEdit = (id: number) => {
                 </UInputDate>
               </template>
               <template #content>
-                <UCalendar v-model="dateRangeValue" range />
+                <UCalendar v-model="dateRangeValue" range locale="cs" />
               </template>
             </UPopover>
           </UFormField>
@@ -239,7 +239,7 @@ const submitEdit = (id: number) => {
                   </UInputDate>
                 </template>
                 <template #content>
-                  <UCalendar v-model="editDateValue" />
+                  <UCalendar v-model="editDateValue" locale="cs" />
                 </template>
               </UPopover>
             </UFormField>
