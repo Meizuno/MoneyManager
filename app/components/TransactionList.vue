@@ -25,7 +25,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: "update", payload: { id: number; input: UpdateTransactionPayload }): void;
   (event: "delete", id: number): void;
-  (event: "focus-form"): void;
   // Combined v-model:filter* writers — keeping them as one overload
   // keeps eslint's @typescript-eslint/unified-signatures happy.
   (
@@ -330,10 +329,7 @@ const submitEdit = (id: number) => {
             <p class="mt-1 text-sm text-dimmed">{{ $t('transactions.emptyDesc') }}</p>
           </div>
           <div class="flex flex-wrap gap-2">
-            <UButton color="primary" variant="solid" to="/import">
-              {{ $t('transactions.importCsv') }}
-            </UButton>
-            <UButton variant="outline" color="neutral" @click="$emit('focus-form')">
+            <UButton color="primary" variant="solid" to="/transactions">
               {{ $t('transactions.addManually') }}
             </UButton>
           </div>
