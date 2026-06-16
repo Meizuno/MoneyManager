@@ -55,6 +55,20 @@ export const useCategories = () => {
   const ensureLoaded = () => Promise.all([ensureSplitRules(), ensureIncomeCategories()]);
   const refresh = () => Promise.all([loadSplitRules(true), loadIncomeCategories(true)]);
 
+  // Seed both lists from data fetched elsewhere (e.g. the /api/overview
+  // BFF) and mark them loaded, so the fetch-once cache treats them as
+  // populated and no extra per-list request is made.
+  const hydrate = (data: { splitRules?: SplitRule[], incomeCategories?: IncomeCategory[] }) => {
+    if (data.splitRules) {
+      splitRules.value = data.splitRules;
+      splitLoaded.value = true;
+    }
+    if (data.incomeCategories) {
+      incomeCategories.value = data.incomeCategories;
+      incomeLoaded.value = true;
+    }
+  };
+
   // ---- expense categories (sales-split rules) CRUD ------------------------
   const addRule = async () => {
     savingRule.value = true;
@@ -111,6 +125,7 @@ export const useCategories = () => {
     ensureSplitRules,
     ensureIncomeCategories,
     ensureLoaded,
+    hydrate,
     refresh,
     addRule,
     updateRule,

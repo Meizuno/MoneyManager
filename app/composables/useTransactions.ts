@@ -1,4 +1,5 @@
 import type { Transaction, TransactionSummary, CreateTransactionPayload, UpdateTransactionPayload } from "#shared/schemas/transaction";
+import type { OverviewResponse } from "#shared/schemas/overview";
 
 export const useTransactions = () => {
   const { t } = useI18n();
@@ -72,7 +73,7 @@ export const useTransactions = () => {
   // Reference lists are owned by useCategories (single source of truth,
   // smart cache). The form dropdowns read them here; the categories page
   // edits them there — same useState, so edits stay in sync.
-  const { splitRules, incomeCategories, ensureSplitRules, ensureIncomeCategories } = useCategories();
+  const { splitRules, incomeCategories, ensureSplitRules, ensureIncomeCategories, hydrate: hydrateCategories } = useCategories();
 
   const MANAGE_CATEGORIES_VALUE = "__manage_categories__";
 
@@ -243,16 +244,21 @@ export const useTransactions = () => {
     }
   };
 
-  const loadTransactions = async (opts?: { force?: boolean }) => {
-    if (!opts?.force && transactions.value.length > 0) return;
+  const overviewLoaded = useState<boolean>("overview_loaded", () => false);
+
+  // Single-request loader for the overview: the /api/overview BFF returns
+  // the list, summary, and both category lists resolved in-process, so
+  // SSR makes one round-trip instead of four. Hydrates the shared
+  // category cache so the form dropdowns reuse it without refetching.
+  const loadOverview = async (opts?: { force?: boolean }) => {
+    if (!opts?.force && overviewLoaded.value) return;
     loading.value = true;
     try {
-      const [data] = await Promise.all([
-        apiFetch<{ items: Transaction[] }>("/api/transactions", { query: filterQuery() }),
-        ensureSplitRules(),
-        ensureIncomeCategories(),
-      ]);
+      const data = await apiFetch<OverviewResponse>("/api/overview", { query: filterQuery() });
       transactions.value = data.items ?? [];
+      summary.value = data.summary;
+      hydrateCategories({ splitRules: data.splitRules, incomeCategories: data.incomeCategories });
+      overviewLoaded.value = true;
     } catch {
       notifyError(t("transactions.toast.loadError"));
     } finally {
@@ -263,7 +269,7 @@ export const useTransactions = () => {
   const createTransaction = async (input: CreateTransactionPayload) => {
     try {
       await apiFetch("/api/transactions", { method: "POST", body: input });
-      await Promise.all([loadTransactions({ force: true }), loadSummary()]);
+      await loadOverview({ force: true });
       notifySuccess(t("transactions.toast.added"));
       return true;
     } catch {
@@ -275,7 +281,7 @@ export const useTransactions = () => {
   const updateTransaction = async (id: number, input: UpdateTransactionPayload) => {
     try {
       await apiFetch(`/api/transactions/${id}`, { method: "PUT", body: input });
-      await Promise.all([loadTransactions({ force: true }), loadSummary()]);
+      await loadOverview({ force: true });
       notifySuccess(t("transactions.toast.updated"));
       return true;
     } catch {
@@ -287,7 +293,7 @@ export const useTransactions = () => {
   const deleteTransaction = async (id: number) => {
     try {
       await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
-      await Promise.all([loadTransactions({ force: true }), loadSummary()]);
+      await loadOverview({ force: true });
       notifySuccess(t("transactions.toast.deleted"));
       return true;
     } catch {
@@ -314,7 +320,7 @@ export const useTransactions = () => {
     totals,
     summary,
     formatAmount,
-    loadTransactions,
+    loadOverview,
     loadSummary,
     createTransaction,
     updateTransaction,
