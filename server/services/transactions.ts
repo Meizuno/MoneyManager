@@ -9,6 +9,7 @@ import {
   createTransactionScoped,
   deleteTransactionScoped,
   listTransactionsScoped,
+  summarizeTransactionsScoped,
   updateTransactionScoped
 } from '../utils/transactions'
 
@@ -38,4 +39,9 @@ export async function deleteTransaction(event: H3Event, id: number) {
 export async function listTransactions(event: H3Event, query: ListTransactionsQuery) {
   const { userId } = await authorize(event, 'read')
   return listTransactionsScoped(userId, query)
+}
+
+export async function summarizeTransactions(event: H3Event, query: ListTransactionsQuery) {
+  const { userId } = await authorize(event, 'read')
+  return summarizeTransactionsScoped(userId, query)
 }

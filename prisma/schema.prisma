@@ -17,9 +17,12 @@ model Income {
   user_id    String
   created_at DateTime @default(now())
 
-  @@index([date])
-  @@index([category])
-  @@index([user_id])
+  // Composite indexes matching the scoped queries: every read filters by
+  // user_id first, then a date range (list/summary) or category id (the
+  // in-use-on-delete guard). A user_id-prefixed index also covers plain
+  // user_id lookups, so the old single-column indexes are redundant.
+  @@index([user_id, date])
+  @@index([user_id, category])
   @@map("incomes")
 }
 
@@ -33,9 +36,10 @@ model Expense {
   user_id    String
   created_at DateTime @default(now())
 
-  @@index([date])
-  @@index([category])
-  @@index([user_id])
+  // See Income: composite (user_id, date) and (user_id, category) cover
+  // the scoped list/summary and category-in-use queries respectively.
+  @@index([user_id, date])
+  @@index([user_id, category])
   @@map("expenses")
 }
 

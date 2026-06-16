@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client'
 import {
   createTransactionScoped,
   listTransactionsScoped,
+  summarizeTransactionsScoped,
   updateTransactionScoped
 } from '../../../server/utils/transactions'
 import { CategoryNotFound, CategoryRequired } from '../../../server/utils/errors'
@@ -53,13 +54,15 @@ function makeDb() {
       create,
       update,
       delete: vi.fn(async () => makeRow()),
-      findFirst: vi.fn(async () => null)
+      findFirst: vi.fn(async () => null),
+      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 }))
     },
     expense: {
       create,
       update,
       delete: vi.fn(async () => makeRow()),
-      findFirst: vi.fn(async () => null)
+      findFirst: vi.fn(async () => null),
+      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 }))
     },
     expenseCategory: {
       findFirst: vi.fn(async () => null),
@@ -181,6 +184,52 @@ describe('updateTransactionScoped — category integrity', () => {
     await updateTransactionScoped('u1', 7, { category: 8 })
     expect(db.expense.update).toHaveBeenCalledOnce()
     expect(db.expense.update.mock.calls[0][0].data.category).toBe(8)
+  })
+})
+
+describe('summarizeTransactionsScoped', () => {
+  it('sums both tables and nets them when no type filter is set', async () => {
+    db.income.aggregate = vi.fn(async () => ({ _sum: { amount: 1000 }, _count: 3 }))
+    db.expense.aggregate = vi.fn(async () => ({ _sum: { amount: 400 }, _count: 5 }))
+    const summary = await summarizeTransactionsScoped('u1', {})
+    expect(summary).toEqual({
+      income: 1000, expenses: 400, net: 600, incomeCount: 3, expenseCount: 5
+    })
+  })
+
+  it('aggregates only income when type=income (expense table untouched)', async () => {
+    db.income.aggregate = vi.fn(async () => ({ _sum: { amount: 1000 }, _count: 3 }))
+    const summary = await summarizeTransactionsScoped('u1', { type: 'income' })
+    expect(summary).toEqual({
+      income: 1000, expenses: 0, net: 1000, incomeCount: 3, expenseCount: 0
+    })
+    expect(db.expense.aggregate).not.toHaveBeenCalled()
+  })
+
+  it('aggregates only expense when type=expense (income table untouched)', async () => {
+    db.expense.aggregate = vi.fn(async () => ({ _sum: { amount: 400 }, _count: 5 }))
+    const summary = await summarizeTransactionsScoped('u1', { type: 'expense' })
+    expect(summary).toEqual({
+      income: 0, expenses: 400, net: -400, incomeCount: 0, expenseCount: 5
+    })
+    expect(db.income.aggregate).not.toHaveBeenCalled()
+  })
+
+  it('treats a null sum (no matching rows) as zero', async () => {
+    db.income.aggregate = vi.fn(async () => ({ _sum: { amount: null }, _count: 0 }))
+    db.expense.aggregate = vi.fn(async () => ({ _sum: { amount: null }, _count: 0 }))
+    const summary = await summarizeTransactionsScoped('u1', {})
+    expect(summary).toEqual({
+      income: 0, expenses: 0, net: 0, incomeCount: 0, expenseCount: 0
+    })
+  })
+
+  it('scopes the aggregate to the viewer and the inclusive date range', async () => {
+    await summarizeTransactionsScoped('u1', { dateFrom: '2024-01-01', dateTo: '2024-01-31' })
+    const where = db.income.aggregate.mock.calls[0][0].where
+    expect(where.user_id).toBe('u1')
+    expect(where.date.gte).toEqual(new Date('2024-01-01T00:00:00.000Z'))
+    expect(where.date.lte).toEqual(new Date('2024-01-31T23:59:59.999Z'))
   })
 })
 
