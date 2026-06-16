@@ -5,14 +5,13 @@ const {
   typeOptions,
   getCategoryOptions,
   MANAGE_CATEGORIES_VALUE,
-  loadSplitRules,
-  loadIncomeCategories,
+  ensureCategories,
   createTransaction,
 } = useTransactions();
 
 // The list lives on the overview page now; this page is just the add
 // form, so we only need the category lists that feed the dropdowns.
-await Promise.all([loadSplitRules(), loadIncomeCategories()]);
+await ensureCategories();
 
 const handleCreate = async (payload: CreateTransactionPayload) => {
   await createTransaction(payload);

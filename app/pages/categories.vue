@@ -1,23 +1,32 @@
 <script setup lang="ts">
+import type { SplitRule, IncomeCategory } from "~/composables/useCategories";
+
 const { t } = useI18n();
 useHead({ title: t("categoriesPage.pageTitle") });
 
-const { totals, formatAmount, loadTransactions, splitRules, incomeCategories } = useTransactions();
-const { apiFetch } = useAuth();
-await loadTransactions();
+// Income drives the split-allocation amounts; it comes from the DB-side
+// summary now (totals are aggregated server-side).
+const { totals, formatAmount, loadSummary } = useTransactions();
 
-interface Rule {
-  id: number;
-  label: string;
-  percent: number;
-  color: string;
-}
+// Both lists are owned by useCategories — the single source of truth the
+// transaction form also reads. Edits here update that shared cache in
+// place, so the form's dropdowns stay current without a watcher.
+const {
+  splitRules: rules,
+  incomeCategories: categories,
+  savingRule,
+  savingCategory,
+  ensureSplitRules,
+  ensureIncomeCategories,
+  addRule,
+  updateRule,
+  removeRule,
+  addCategory,
+  updateCategory,
+  removeCategory,
+} = useCategories();
 
-interface Category {
-  id: number;
-  label: string;
-  color: string;
-}
+await Promise.all([loadSummary(), ensureSplitRules(), ensureIncomeCategories()]);
 
 // 20 predefined colors — index matches server's SPLIT_COLORS order.
 // Shared by both expense (sales-split) and income groups. `text` carries
@@ -48,49 +57,16 @@ const COLOR_CLASSES: Record<string, { text: string; bar: string; badge: string }
 // ---------------------------------------------------------------------------
 // Expense categories (sales-split rules) — percent allocation of income.
 // ---------------------------------------------------------------------------
-const rules = ref<Rule[]>([]);
-const savingRule = ref(false);
-
-watch(rules, (newRules) => {
-  splitRules.value = newRules.map(r => ({ id: r.id, label: r.label, color: r.color }));
-}, { deep: true });
-
-function colorOfRule(rule: Rule) {
+function colorOfRule(rule: SplitRule) {
   return COLOR_CLASSES[rule.color] ?? COLOR_CLASSES.cyan!;
 }
 
-async function loadRulesFromApi(): Promise<Rule[]> {
-  try {
-    const data = await apiFetch<{ rules: Rule[] }>("/api/sales-split");
-    return data.rules ?? [];
-  } catch { return []; }
-}
-
-async function addRule() {
-  savingRule.value = true;
-  try {
-    const rule = await apiFetch<Rule>("/api/sales-split", {
-      method: "POST",
-      body: { label: t("salesSplit.newRule"), percent: 10 },
-    });
-    rules.value.push(rule);
-  } finally { savingRule.value = false; }
-}
-
+// Persist label/percent edits after a short pause. The v-model already
+// mutates the shared cache; this just writes the change through.
 const ruleTimers: Record<number, ReturnType<typeof setTimeout>> = {};
-function onRuleInput(rule: Rule) {
+function onRuleInput(rule: SplitRule) {
   clearTimeout(ruleTimers[rule.id]);
-  ruleTimers[rule.id] = setTimeout(async () => {
-    await apiFetch(`/api/sales-split/${rule.id}`, {
-      method: "PUT",
-      body: { label: rule.label, percent: rule.percent },
-    });
-  }, 600);
-}
-
-async function removeRule(id: number) {
-  await apiFetch(`/api/sales-split/${id}`, { method: "DELETE" });
-  rules.value = rules.value.filter((r) => r.id !== id);
+  ruleTimers[rule.id] = setTimeout(() => { void updateRule(rule); }, 600);
 }
 
 const totalPercent = computed(() => rules.value.reduce((s, r) => s + Number(r.percent), 0));
@@ -101,58 +77,15 @@ const splitAmount = (percent: number) => (income.value * percent) / 100;
 // ---------------------------------------------------------------------------
 // Income categories — label-only classification of income transactions.
 // ---------------------------------------------------------------------------
-const categories = ref<Category[]>([]);
-const savingCategory = ref(false);
-
-watch(categories, (newCats) => {
-  incomeCategories.value = newCats.map(c => ({ id: c.id, label: c.label, color: c.color }));
-}, { deep: true });
-
-function colorOfCategory(cat: Category) {
+function colorOfCategory(cat: IncomeCategory) {
   return COLOR_CLASSES[cat.color] ?? COLOR_CLASSES.cyan!;
 }
 
-async function loadCategoriesFromApi(): Promise<Category[]> {
-  try {
-    const data = await apiFetch<Category[]>("/api/income-categories");
-    return data ?? [];
-  } catch { return []; }
-}
-
-async function addCategory() {
-  savingCategory.value = true;
-  try {
-    const cat = await apiFetch<Category>("/api/income-categories", {
-      method: "POST",
-      body: { label: t("incomeCategories.newCategory") },
-    });
-    categories.value.push(cat);
-  } finally { savingCategory.value = false; }
-}
-
 const categoryTimers: Record<number, ReturnType<typeof setTimeout>> = {};
-function onCategoryInput(cat: Category) {
+function onCategoryInput(cat: IncomeCategory) {
   clearTimeout(categoryTimers[cat.id]);
-  categoryTimers[cat.id] = setTimeout(async () => {
-    await apiFetch(`/api/income-categories/${cat.id}`, {
-      method: "PUT",
-      body: { label: cat.label },
-    });
-  }, 600);
+  categoryTimers[cat.id] = setTimeout(() => { void updateCategory(cat); }, 600);
 }
-
-async function removeCategory(id: number) {
-  await apiFetch(`/api/income-categories/${id}`, { method: "DELETE" });
-  categories.value = categories.value.filter((c) => c.id !== id);
-}
-
-// ---------------------------------------------------------------------------
-onMounted(async () => {
-  [rules.value, categories.value] = await Promise.all([
-    loadRulesFromApi(),
-    loadCategoriesFromApi(),
-  ]);
-});
 </script>
 
 <template>
