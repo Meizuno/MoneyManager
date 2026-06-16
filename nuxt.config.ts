@@ -30,13 +30,17 @@ export default defineNuxtConfig({
     strategy: "no_prefix",
   },
   runtimeConfig: {
-    // The one auth-service address. Used both for server-to-server calls
-    // (validate / refresh / me) and as the target of the /auth-proxy
-    // reverse proxy that fronts the browser OAuth flow — so it can be an
-    // internal Docker address in production, e.g.
-    // NUXT_AUTH_SERVICE_URL=http://authentication:8000, with no public
-    // auth URL needed.
+    // Server-to-server base (token validate / refresh / me). In production
+    // this can be an internal Docker network address, e.g.
+    // NUXT_AUTH_SERVICE_URL=http://authentication:8000 — those calls never
+    // leave the host.
     authServiceUrl: "http://localhost:8080",
+    // Browser-facing base for the OAuth login flow. The browser runs the
+    // whole Google dance on the auth server's own public domain (it owns
+    // its /google/callback and registered redirect_uri), so this must be a
+    // public URL, e.g. NUXT_AUTH_PUBLIC_URL=https://auth.example.com. Empty
+    // → falls back to authServiceUrl (dev / single-URL setups).
+    authPublicUrl: "",
   },
 
   // Auto-import server-side use-case functions from server/services
