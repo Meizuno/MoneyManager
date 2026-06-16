@@ -96,21 +96,41 @@ useHead({ title: t("overview.pageTitle") });
       :description="$t('overview.loadingDesc')"
     />
 
-    <TransactionList
-      v-model:filter-category="filterCategory"
-      v-model:filter-type="filterType"
-      v-model:filter-date-from="filterDateFrom"
-      v-model:filter-date-to="filterDateTo"
-      v-model:filter-date-preset="filterDatePreset"
-      :transactions="transactions"
-      :type-options="typeOptions"
-      :get-category-options="getCategoryOptions"
-      :categories="categories"
-      :types="types"
-      :date-preset-options="datePresetOptions"
-      :format-amount="formatAmount"
-      @update="handleUpdate"
-      @delete="handleDelete"
-    />
+    <!-- The ledger (filters + N rows) is the heavy render. Move it off the
+         server: SSR still fetches the data (cheap, serialized into the
+         payload), but the list renders on the client from that data — so
+         the VPS does no per-row work and the list paints instantly on
+         hydration. A skeleton stands in during SSR / before hydration. -->
+    <ClientOnly>
+      <TransactionList
+        v-model:filter-category="filterCategory"
+        v-model:filter-type="filterType"
+        v-model:filter-date-from="filterDateFrom"
+        v-model:filter-date-to="filterDateTo"
+        v-model:filter-date-preset="filterDatePreset"
+        :transactions="transactions"
+        :type-options="typeOptions"
+        :get-category-options="getCategoryOptions"
+        :categories="categories"
+        :types="types"
+        :date-preset-options="datePresetOptions"
+        :format-amount="formatAmount"
+        @update="handleUpdate"
+        @delete="handleDelete"
+      />
+      <template #fallback>
+        <UCard class="glass-card">
+          <USkeleton class="h-6 w-48" />
+          <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <USkeleton class="h-10 w-full" />
+            <USkeleton class="h-10 w-full" />
+            <USkeleton class="h-10 w-full" />
+          </div>
+          <div class="mt-4 space-y-3">
+            <USkeleton v-for="n in 4" :key="n" class="h-20 w-full rounded-2xl" />
+          </div>
+        </UCard>
+      </template>
+    </ClientOnly>
   </div>
 </template>
