@@ -13,6 +13,7 @@
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
   if (path.startsWith('/api/')) return
+  if (path.startsWith('/auth-proxy/')) return // reverse-proxied to the auth service
   if (path.includes('.')) return // static asset
   await authenticate(event)
 })

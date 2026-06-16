@@ -51,13 +51,6 @@ pnpm run prisma:migrate      # apply migrations (dev)
 pnpm run dev                 # http://localhost:3000
 ```
 
-If you're using Docker Compose:
-
-```sh
-docker compose up --build
-docker compose exec app pnpm prisma:migrate
-```
-
 ## Scripts
 
 | Task | Command |
