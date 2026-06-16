@@ -32,7 +32,9 @@
     "description": "Track how money moves across spending categories and transaction types.",
     "loadingTitle": "Loading data",
     "loadingDesc": "Fetching your latest transactions.",
-    "pageTitle": "Money Manager"
+    "pageTitle": "Money Manager",
+    "chartTitle": "Income vs expenses by category",
+    "chartEmpty": "No transactions in this period yet."
   },
   "stats": {
     "income": "Income",
