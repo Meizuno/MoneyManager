@@ -23,16 +23,6 @@ useHead({ title: t("transactions.pageTitle") });
 
 <template>
   <div class="flex w-full flex-col gap-6">
-    <UPageHeader
-      :title="$t('transactions.title')"
-      :description="$t('transactions.description')"
-      class="surface-panel rounded-3xl px-6 py-6"
-    >
-      <template #headline>
-        <UBadge color="primary" variant="subtle">{{ $t('nav.transactions') }}</UBadge>
-      </template>
-    </UPageHeader>
-
     <TransactionForm
       :type-options="typeOptions"
       :get-category-options="getCategoryOptions"

@@ -90,16 +90,6 @@ function onCategoryInput(cat: IncomeCategory) {
 
 <template>
   <div class="flex flex-col gap-12">
-    <UPageHeader
-      :title="$t('categoriesPage.title')"
-      :description="$t('categoriesPage.description')"
-      class="surface-panel rounded-3xl px-6 py-6"
-    >
-      <template #headline>
-        <UBadge color="primary" variant="subtle">{{ $t('categoriesPage.badge') }}</UBadge>
-      </template>
-    </UPageHeader>
-
     <!-- Expense categories (sales split) -->
     <section id="expense" class="flex flex-col gap-6 scroll-mt-28">
       <div>
