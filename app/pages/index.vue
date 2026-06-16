@@ -74,17 +74,7 @@ useHead({ title: t("overview.pageTitle") });
 </script>
 
 <template>
-  <div class="flex flex-col gap-10">
-    <UPageHeader
-      :title="$t('overview.title')"
-      :description="$t('overview.description')"
-      class="surface-panel rounded-3xl px-6 py-6"
-    >
-      <template #headline>
-        <UBadge color="primary" variant="subtle">{{ $t('nav.overview') }}</UBadge>
-      </template>
-    </UPageHeader>
-
+  <div class="flex flex-col gap-8">
     <StatsCards :totals="totals" :format-amount="formatAmount" />
 
     <UAlert
