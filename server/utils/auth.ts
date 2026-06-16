@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { getCookie, getHeader, setCookie } from 'h3'
 import type { H3Event } from 'h3'
 import { Unauthorized } from './errors'
@@ -9,20 +10,79 @@ export type AuthUser = { id: string }
 // outside the env plugin (per architecture rule).
 const isSecure = () => !import.meta.dev
 
-/** Validate a token string against the auth service. */
-export async function verifyAccessToken(token: string): Promise<AuthUser | null> {
+// Short-TTL cache of SUCCESSFUL access-token validations. A single SSR
+// page render fans out to several /api calls, each its own H3 event that
+// forwards the same mm_access cookie; without this, each would re-hit the
+// auth service's /validate. Keyed by sha256(token) so raw tokens aren't
+// held in memory, with a few-seconds TTL: long enough to cover one
+// render's fan-out, short enough that a revoked/expired token isn't
+// honoured meaningfully past its lifetime. Only successes are cached
+// (failures fall through to the refresh path every time).
+const VALIDATION_TTL_MS = 5_000
+const validationCache = new Map<string, { user: AuthUser, expiresAt: number }>()
+
+function tokenKey(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+// Drop expired entries when the map grows past a small bound, so a long-
+// running process doesn't accumulate keys for tokens never seen again.
+function pruneValidationCache(now: number): void {
+  if (validationCache.size < 1024) return
+  for (const [key, entry] of validationCache) {
+    if (entry.expiresAt <= now) validationCache.delete(key)
+  }
+}
+
+/** Test-only: reset the validation cache between cases. */
+export function __clearValidationCache(): void {
+  validationCache.clear()
+}
+
+/**
+ * Cache layer around a token validator: returns the cached user on a
+ * fresh hit, otherwise runs `validate` and caches a successful result.
+ * Failures (null) are not cached. The validator is injected so this core
+ * — the dedupe behaviour — is testable without the Nuxt globals that the
+ * real `verifyAccessToken` reaches for.
+ */
+export async function withValidationCache(
+  token: string,
+  validate: () => Promise<AuthUser | null>
+): Promise<AuthUser | null> {
   if (!token) return null
-  try {
-    const config = useRuntimeConfig()
-    const result = await $fetch<{ user_id: string }>(
-      `${config.authServiceUrl}/validate`,
-      { headers: { authorization: `Bearer ${token}` } }
-    )
-    return result.user_id ? { id: result.user_id } : null
-  }
-  catch {
-    return null
-  }
+
+  const key = tokenKey(token)
+  const now = Date.now()
+  const hit = validationCache.get(key)
+  if (hit && hit.expiresAt > now) return hit.user
+  if (hit) validationCache.delete(key)
+
+  const user = await validate()
+  if (!user) return null
+  pruneValidationCache(now)
+  validationCache.set(key, { user, expiresAt: now + VALIDATION_TTL_MS })
+  return user
+}
+
+/**
+ * Validate a token string against the auth service, with a short-TTL
+ * cache so a single request's SSR fan-out validates only once.
+ */
+export function verifyAccessToken(token: string): Promise<AuthUser | null> {
+  return withValidationCache(token, async () => {
+    try {
+      const config = useRuntimeConfig()
+      const result = await $fetch<{ user_id: string }>(
+        `${config.authServiceUrl}/validate`,
+        { headers: { authorization: `Bearer ${token}` } }
+      )
+      return result.user_id ? { id: result.user_id } : null
+    }
+    catch {
+      return null
+    }
+  })
 }
 
 // Read a cookie from the parsed H3 cookies, falling back to the raw

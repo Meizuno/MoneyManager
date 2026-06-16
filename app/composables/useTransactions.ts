@@ -69,8 +69,10 @@ export const useTransactions = () => {
     typeValues.map((v) => ({ label: t(`types.${v}`), value: v, icon: typeIconMap[v] }))
   );
 
-  const splitRules = useState<{ id: number; label: string; color: string }[]>("split_rules", () => []);
-  const incomeCategories = useState<{ id: number; label: string; color: string }[]>("income_categories", () => []);
+  // Reference lists are owned by useCategories (single source of truth,
+  // smart cache). The form dropdowns read them here; the categories page
+  // edits them there — same useState, so edits stay in sync.
+  const { splitRules, incomeCategories, ensureSplitRules, ensureIncomeCategories } = useCategories();
 
   const MANAGE_CATEGORIES_VALUE = "__manage_categories__";
 
@@ -226,19 +228,9 @@ export const useTransactions = () => {
     { immediate: true },
   );
 
-  const loadSplitRules = async () => {
-    try {
-      const data = await apiFetch<{ rules: { id: number; label: string; color: string }[] }>("/api/sales-split");
-      splitRules.value = data.rules ?? [];
-    } catch { splitRules.value = []; }
-  };
-
-  const loadIncomeCategories = async () => {
-    try {
-      const data = await apiFetch<{ id: number; label: string; color: string }[]>("/api/income-categories");
-      incomeCategories.value = data ?? [];
-    } catch { incomeCategories.value = []; }
-  };
+  // Make sure the form's category dropdowns have data. Fetch-once via the
+  // useCategories cache — no-ops when the lists are already loaded.
+  const ensureCategories = () => Promise.all([ensureSplitRules(), ensureIncomeCategories()]);
 
   const loadSummary = async () => {
     try {
@@ -257,8 +249,8 @@ export const useTransactions = () => {
     try {
       const [data] = await Promise.all([
         apiFetch<{ items: Transaction[] }>("/api/transactions", { query: filterQuery() }),
-        splitRules.value.length === 0 ? loadSplitRules() : Promise.resolve(),
-        incomeCategories.value.length === 0 ? loadIncomeCategories() : Promise.resolve(),
+        ensureSplitRules(),
+        ensureIncomeCategories(),
       ]);
       transactions.value = data.items ?? [];
     } catch {
@@ -315,10 +307,7 @@ export const useTransactions = () => {
     filterDatePreset,
     typeOptions,
     getCategoryOptions,
-    splitRules,
-    loadSplitRules,
-    incomeCategories,
-    loadIncomeCategories,
+    ensureCategories,
     categories,
     types,
     datePresetOptions,
