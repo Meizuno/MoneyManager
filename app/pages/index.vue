@@ -17,17 +17,15 @@ const {
   getCategoryOptions,
   totals,
   formatAmount,
-  loadTransactions,
-  loadSummary,
+  loadOverview,
   updateTransaction,
   deleteTransaction,
 } = useTransactions();
 
-await Promise.all([loadTransactions(), loadSummary()]);
+await loadOverview();
 
 watch([filterCategory, filterType, filterDateFrom, filterDateTo], () => {
-  loadTransactions({ force: true });
-  loadSummary();
+  loadOverview({ force: true });
 });
 
 // Mirror the active filters into the URL query so the view is
