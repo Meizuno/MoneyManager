@@ -3,6 +3,7 @@ import type {
   CreateTransactionInput,
   ListTransactionsQuery,
   Transaction,
+  TransactionSummary,
   TransactionType,
   UpdateTransactionInput
 } from '#shared/schemas/transaction'
@@ -95,15 +96,11 @@ function deriveType(input: CreateTransactionInput): TransactionType {
   return input.amount < 0 ? 'expense' : 'income'
 }
 
-// List + filter, scoped to one user. Reads from both tables when no
-// type filter is set and merges by date desc (id desc tiebreaker).
-export async function listTransactionsScoped(
-  viewerId: string,
-  query: ListTransactionsQuery
-): Promise<Transaction[]> {
-  const db = getPrisma()
-  const { type, category, dateFrom, dateTo } = query
-
+// Build the Prisma `where` shared by list + summary: scope to the viewer,
+// optionally pin a category, and bound an inclusive date range. The same
+// clause runs against both the income and expense tables.
+function scopedWhere(viewerId: string, query: ListTransactionsQuery) {
+  const { category, dateFrom, dateTo } = query
   const dateRange = (dateFrom || dateTo)
     ? {
         date: {
@@ -112,12 +109,22 @@ export async function listTransactionsScoped(
         }
       }
     : {}
-
-  const where = {
+  return {
     user_id: viewerId,
     ...(category !== undefined ? { category } : {}),
     ...dateRange
   }
+}
+
+// List + filter, scoped to one user. Reads from both tables when no
+// type filter is set and merges by date desc (id desc tiebreaker).
+export async function listTransactionsScoped(
+  viewerId: string,
+  query: ListTransactionsQuery
+): Promise<Transaction[]> {
+  const db = getPrisma()
+  const { type } = query
+  const where = scopedWhere(viewerId, query)
   const orderBy = [{ date: 'desc' as const }, { id: 'desc' as const }]
 
   if (type === 'income') {
@@ -148,6 +155,34 @@ export async function listTransactionsScoped(
     if (a.date !== b.date) return a.date < b.date ? 1 : -1
     return b.id - a.id
   })
+}
+
+// Aggregate the filtered transactions in the database rather than pulling
+// every row to the client. Sums the stored (absolute) amounts per table;
+// a `type` filter skips the other table entirely so its sum/count is 0.
+export async function summarizeTransactionsScoped(
+  viewerId: string,
+  query: ListTransactionsQuery
+): Promise<TransactionSummary> {
+  const db = getPrisma()
+  const where = scopedWhere(viewerId, query)
+  const wantIncome = query.type !== 'expense'
+  const wantExpense = query.type !== 'income'
+
+  const [incomeAgg, expenseAgg] = await Promise.all([
+    wantIncome ? db.income.aggregate({ _sum: { amount: true }, _count: true, where }) : Promise.resolve(null),
+    wantExpense ? db.expense.aggregate({ _sum: { amount: true }, _count: true, where }) : Promise.resolve(null)
+  ])
+
+  const income = incomeAgg ? Number(incomeAgg._sum.amount ?? 0) : 0
+  const expenses = expenseAgg ? Number(expenseAgg._sum.amount ?? 0) : 0
+  return {
+    income,
+    expenses,
+    net: income - expenses,
+    incomeCount: incomeAgg?._count ?? 0,
+    expenseCount: expenseAgg?._count ?? 0
+  }
 }
 
 // Resolve the id → label map for a single resolved type. Small helper so

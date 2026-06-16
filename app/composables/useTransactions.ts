@@ -1,10 +1,21 @@
-import type { Transaction, CreateTransactionPayload, UpdateTransactionPayload } from "#shared/schemas/transaction";
+import type { Transaction, TransactionSummary, CreateTransactionPayload, UpdateTransactionPayload } from "#shared/schemas/transaction";
 
 export const useTransactions = () => {
   const { t } = useI18n();
 
   const transactions = useState<Transaction[]>("transactions", () => []);
   const loading = useState<boolean>("transactions_loading", () => false);
+
+  // DB-side aggregates for the overview stats. Sourced from
+  // /api/transactions/summary so the totals don't depend on fetching
+  // every matching row.
+  const summary = useState<TransactionSummary>("transactions_summary", () => ({
+    income: 0,
+    expenses: 0,
+    net: 0,
+    incomeCount: 0,
+    expenseCount: 0,
+  }));
 
   // Feedback surfaces as toasts rather than inline banners.
   const toast = useToast();
@@ -123,23 +134,11 @@ export const useTransactions = () => {
     { label: t("datePresets.custom"), value: "custom" },
   ]);
 
-  const totals = computed(() => {
-    let income = 0;
-    let expenses = 0;
-    transactions.value.forEach((item) => {
-      const abs = Math.abs(item.amount ?? 0);
-      if (item.type === "income") {
-        income += abs;
-      } else {
-        expenses += abs;
-      }
-    });
-    return {
-      income,
-      expenses,
-      net: income - expenses,
-    };
-  });
+  const totals = computed(() => ({
+    income: summary.value.income,
+    expenses: summary.value.expenses,
+    net: summary.value.net,
+  }));
 
   const formatAmount =(amount: number, currency?: string | null) => {
     const normalizedCurrency =
@@ -170,6 +169,21 @@ export const useTransactions = () => {
   };
 
   const normalizedFilterType = computed(() => normalizeTypeFilter(filterType.value));
+
+  // The active filters as API query params, shared by the list and
+  // summary fetches. "all" / empty are UI sentinels for "no filter" and
+  // are dropped to undefined — the server's `type` is a strict
+  // income|expense enum and 400s on "all", so omitting the param leaves
+  // the filter simply absent.
+  const filterQuery = () => ({
+    category:
+      filterCategory.value && filterCategory.value !== "all"
+        ? filterCategory.value
+        : undefined,
+    type: normalizedFilterType.value !== "all" ? normalizedFilterType.value : undefined,
+    dateFrom: filterDateFrom.value || undefined,
+    dateTo: filterDateTo.value || undefined,
+  });
 
   const formatDate = (date: Date) => {
     const year = date.getFullYear();
@@ -226,29 +240,23 @@ export const useTransactions = () => {
     } catch { incomeCategories.value = []; }
   };
 
+  const loadSummary = async () => {
+    try {
+      summary.value = await apiFetch<TransactionSummary>("/api/transactions/summary", {
+        query: filterQuery(),
+      });
+    } catch {
+      // Keep the last known summary on failure; the list load surfaces
+      // the error toast so we don't double-notify here.
+    }
+  };
+
   const loadTransactions = async (opts?: { force?: boolean }) => {
     if (!opts?.force && transactions.value.length > 0) return;
     loading.value = true;
     try {
       const [data] = await Promise.all([
-        apiFetch<{ items: Transaction[] }>("/api/transactions", {
-          // "all" / empty are UI sentinels for "no filter" — drop them
-          // rather than send them as query params. The server's `type`
-          // is a strict income|expense enum and 400s on "all"; sending
-          // undefined omits the param so the filter is simply absent.
-          query: {
-            category:
-              filterCategory.value && filterCategory.value !== "all"
-                ? filterCategory.value
-                : undefined,
-            type:
-              normalizedFilterType.value !== "all"
-                ? normalizedFilterType.value
-                : undefined,
-            dateFrom: filterDateFrom.value || undefined,
-            dateTo: filterDateTo.value || undefined,
-          },
-        }),
+        apiFetch<{ items: Transaction[] }>("/api/transactions", { query: filterQuery() }),
         splitRules.value.length === 0 ? loadSplitRules() : Promise.resolve(),
         incomeCategories.value.length === 0 ? loadIncomeCategories() : Promise.resolve(),
       ]);
@@ -263,7 +271,7 @@ export const useTransactions = () => {
   const createTransaction = async (input: CreateTransactionPayload) => {
     try {
       await apiFetch("/api/transactions", { method: "POST", body: input });
-      await loadTransactions({ force: true });
+      await Promise.all([loadTransactions({ force: true }), loadSummary()]);
       notifySuccess(t("transactions.toast.added"));
       return true;
     } catch {
@@ -275,7 +283,7 @@ export const useTransactions = () => {
   const updateTransaction = async (id: number, input: UpdateTransactionPayload) => {
     try {
       await apiFetch(`/api/transactions/${id}`, { method: "PUT", body: input });
-      await loadTransactions({ force: true });
+      await Promise.all([loadTransactions({ force: true }), loadSummary()]);
       notifySuccess(t("transactions.toast.updated"));
       return true;
     } catch {
@@ -287,7 +295,7 @@ export const useTransactions = () => {
   const deleteTransaction = async (id: number) => {
     try {
       await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
-      await loadTransactions({ force: true });
+      await Promise.all([loadTransactions({ force: true }), loadSummary()]);
       notifySuccess(t("transactions.toast.deleted"));
       return true;
     } catch {
@@ -315,8 +323,10 @@ export const useTransactions = () => {
     types,
     datePresetOptions,
     totals,
+    summary,
     formatAmount,
     loadTransactions,
+    loadSummary,
     createTransaction,
     updateTransaction,
     deleteTransaction,

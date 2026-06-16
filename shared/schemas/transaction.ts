@@ -164,6 +164,19 @@ export const listTransactionsQuerySchema = z.object({
 })
 export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>
 
+// The summary endpoint takes the same filters as the list (the query
+// schema is shared) but returns DB-side aggregates instead of rows, so
+// the overview's totals don't depend on fetching every matching row.
+// `income`/`expenses` are positive sums of the stored (absolute) amounts;
+// `net` is income − expenses.
+export type TransactionSummary = {
+  income: number
+  expenses: number
+  net: number
+  incomeCount: number
+  expenseCount: number
+}
+
 // The transaction's category on read: the stored id plus its label,
 // joined from the matching category table. id 0 is "uncategorised" and a
 // since-deleted id resolves to an empty label. Writes still take a bare
