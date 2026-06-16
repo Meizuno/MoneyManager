@@ -143,15 +143,8 @@ const submitForm = () => {
 
 <template>
   <UCard class="glass-card">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 class="text-xl font-semibold text-highlighted">{{ $t('form.title') }}</h2>
-        <p class="mt-1 text-sm text-muted">{{ $t('form.description') }}</p>
-      </div>
-      <UBadge color="primary" variant="subtle">{{ $t('form.badge') }}</UBadge>
-    </div>
-    <div class="mt-6 grid gap-3">
-      <div class="grid gap-3 md:grid-cols-2">
+    <div class="grid gap-3">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <UFormField :label="$t('form.date')" :help="$t('form.dateHelp')">
           <UPopover v-model:open="formDateOpen" :content="{ side: 'bottom', sideOffset: 8 }">
             <template #anchor>
@@ -172,6 +165,17 @@ const submitForm = () => {
             </template>
           </UPopover>
         </UFormField>
+        <UFormField :label="$t('form.type')" :help="$t('form.typeHelp')">
+          <USelect
+            v-model="form.type"
+            :items="typeOptions"
+            :leading-icon="typeOptions.find(o => o.value === form.type)?.icon"
+            class="w-full"
+          />
+        </UFormField>
+        <UFormField :label="$t('form.currency')" :help="$t('form.currencyHelp')">
+          <UInput v-model="form.currency" :placeholder="$t('form.currencyPlaceholder')" class="w-full" />
+        </UFormField>
         <UFormField :label="$t('form.name')" :help="$t('form.nameHelp')">
           <UInput v-model="form.name" :placeholder="$t('form.namePlaceholder')" class="w-full" />
         </UFormField>
@@ -182,17 +186,6 @@ const submitForm = () => {
             :min="0"
             :format-options="{ minimumFractionDigits: 2, maximumFractionDigits: 2 }"
             placeholder="12.50"
-            class="w-full"
-          />
-        </UFormField>
-        <UFormField :label="$t('form.currency')" :help="$t('form.currencyHelp')">
-          <UInput v-model="form.currency" :placeholder="$t('form.currencyPlaceholder')" class="w-full" />
-        </UFormField>
-        <UFormField :label="$t('form.type')" :help="$t('form.typeHelp')">
-          <USelect
-            v-model="form.type"
-            :items="typeOptions"
-            :leading-icon="typeOptions.find(o => o.value === form.type)?.icon"
             class="w-full"
           />
         </UFormField>

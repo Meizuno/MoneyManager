@@ -13,7 +13,7 @@
   },
   "nav": {
     "overview": "Overview",
-    "transactions": "Transactions",
+    "transactions": "New transaction",
     "categories": "Categories"
   },
   "common": {
@@ -32,7 +32,6 @@
     "description": "Track how money moves across spending categories and transaction types.",
     "loadingTitle": "Loading data",
     "loadingDesc": "Fetching your latest transactions.",
-    "errorTitle": "Something went wrong",
     "pageTitle": "Money Manager"
   },
   "stats": {
@@ -53,18 +52,25 @@
     "other": "Other"
   },
   "transactions": {
-    "badge": "Transactions",
-    "title": "Manage entries",
-    "description": "Add manual entries, tidy imports, and keep your ledger accurate.",
-    "pageTitle": "Transactions",
+    "badge": "New transaction",
+    "title": "New transaction",
+    "description": "Add a manual entry — cash spending, a transfer, or income — to your ledger.",
+    "pageTitle": "New transaction",
     "listTitle": "Transactions",
     "listDesc": "Review, edit, or clean up entries from imports and manual adds.",
     "netTotal": "Net total",
     "shown": "entries shown",
     "loadingTitle": "Loading transactions",
     "loadingDesc": "Syncing your latest entries.",
-    "errorTitle": "Action failed",
-    "successTitle": "Update complete",
+    "toast": {
+      "added": "Transaction added",
+      "updated": "Transaction updated",
+      "deleted": "Transaction deleted",
+      "loadError": "Unable to load transactions",
+      "addError": "Unable to add transaction",
+      "updateError": "Unable to update transaction",
+      "deleteError": "Unable to delete transaction"
+    },
     "emptyTitle": "No transactions yet",
     "emptyDesc": "Import a CSV for bulk entries or add a manual transaction.",
     "importCsv": "Import CSV",
@@ -79,9 +85,6 @@
     "dateRange": "Date range"
   },
   "form": {
-    "title": "Add transaction",
-    "description": "Capture manual entries like cash spending or transfers.",
-    "badge": "Manual entry",
     "date": "Date",
     "dateHelp": "Use the posting date from your statement.",
     "name": "Name",

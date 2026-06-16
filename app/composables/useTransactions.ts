@@ -5,13 +5,31 @@ export const useTransactions = () => {
 
   const transactions = useState<Transaction[]>("transactions", () => []);
   const loading = useState<boolean>("transactions_loading", () => false);
-  const errorMessage = useState<string>("transactions_error", () => "");
-  const statusMessage = useState<string>("transactions_status", () => "");
-  const filterCategory = useState<string>("transactions_filter", () => "all");
-  const filterType = useState<string>("transactions_filter_type", () => "all");
-  const filterDateFrom = useState<string>("transactions_filter_date_from", () => "");
-  const filterDateTo = useState<string>("transactions_filter_date_to", () => "");
-  const filterDatePreset = useState<string>("transactions_filter_date_preset", () => "all");
+
+  // Feedback surfaces as toasts rather than inline banners.
+  const toast = useToast();
+  const notifySuccess = (title: string) =>
+    toast.add({ title, color: "success", icon: "i-heroicons-check-circle" });
+  const notifyError = (title: string) =>
+    toast.add({ title, color: "error", icon: "i-heroicons-exclamation-triangle" });
+
+  // Seed the filters from the URL query so a reloaded / shared overview
+  // link restores the same view. Runs in the useState factory (server
+  // side during SSR) so the first render already reflects the query.
+  const route = useRoute();
+  const queryString = (value: unknown, fallback: string) =>
+    typeof value === "string" && value ? value : fallback;
+
+  const filterCategory = useState<string>("transactions_filter", () =>
+    queryString(route.query.category, "all"));
+  const filterType = useState<string>("transactions_filter_type", () =>
+    queryString(route.query.type, "all"));
+  const filterDateFrom = useState<string>("transactions_filter_date_from", () =>
+    queryString(route.query.dateFrom, ""));
+  const filterDateTo = useState<string>("transactions_filter_date_to", () =>
+    queryString(route.query.dateTo, ""));
+  const filterDatePreset = useState<string>("transactions_filter_date_preset", () =>
+    queryString(route.query.preset, "this-month"));
 
   const typeIconMap: Record<string, string> = {
     income: "i-heroicons-arrow-trending-up",
@@ -98,10 +116,10 @@ export const useTransactions = () => {
   ]);
 
   const datePresetOptions = computed(() => [
-    { label: t("datePresets.all"), value: "all" },
     { label: t("datePresets.thisMonth"), value: "this-month" },
     { label: t("datePresets.prevMonth"), value: "previous-month" },
     { label: t("datePresets.thisYear"), value: "this-year" },
+    { label: t("datePresets.all"), value: "all" },
     { label: t("datePresets.custom"), value: "custom" },
   ]);
 
@@ -123,27 +141,7 @@ export const useTransactions = () => {
     };
   });
 
-  const categoryTotals = computed(() => {
-    const map = new Map<string, number>();
-    transactions.value.forEach((item) => {
-      const key = item.category.label || "other";
-      const abs = Math.abs(item.amount ?? 0);
-      const signed = item.type === "income" ? abs : -abs;
-      map.set(key, (map.get(key) ?? 0) + signed);
-    });
-    return Array.from(map.entries())
-      .map(([category, total]) => ({ category, total }))
-      .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
-  });
-
-  const maxCategoryTotal = computed(() => {
-    return categoryTotals.value.reduce(
-      (max, item) => Math.max(max, Math.abs(item.total)),
-      1,
-    );
-  });
-
-  const formatAmount = (amount: number, currency?: string | null) => {
+  const formatAmount =(amount: number, currency?: string | null) => {
     const normalizedCurrency =
       currency && currency.length === 3 ? currency.toUpperCase() : "CZK";
     if (normalizedCurrency && normalizedCurrency.length === 3) {
@@ -160,11 +158,6 @@ export const useTransactions = () => {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
-  };
-
-  const resetMessages = () => {
-    errorMessage.value = "";
-    statusMessage.value = "";
   };
 
   const { apiFetch } = useAuth();
@@ -233,10 +226,9 @@ export const useTransactions = () => {
     } catch { incomeCategories.value = []; }
   };
 
-  const loadTransactions = async (opts?: { force?: boolean; preserveStatus?: boolean }) => {
+  const loadTransactions = async (opts?: { force?: boolean }) => {
     if (!opts?.force && transactions.value.length > 0) return;
     loading.value = true;
-    if (!opts?.preserveStatus) resetMessages(); else errorMessage.value = "";
     try {
       const [data] = await Promise.all([
         apiFetch<{ items: Transaction[] }>("/api/transactions", {
@@ -262,47 +254,44 @@ export const useTransactions = () => {
       ]);
       transactions.value = data.items ?? [];
     } catch {
-      errorMessage.value = "Unable to load transactions.";
+      notifyError(t("transactions.toast.loadError"));
     } finally {
       loading.value = false;
     }
   };
 
   const createTransaction = async (input: CreateTransactionPayload) => {
-    resetMessages();
     try {
       await apiFetch("/api/transactions", { method: "POST", body: input });
-      await loadTransactions({ force: true, preserveStatus: true });
-      statusMessage.value = "Transaction added.";
+      await loadTransactions({ force: true });
+      notifySuccess(t("transactions.toast.added"));
       return true;
     } catch {
-      errorMessage.value = "Unable to add transaction.";
+      notifyError(t("transactions.toast.addError"));
       return false;
     }
   };
 
   const updateTransaction = async (id: number, input: UpdateTransactionPayload) => {
-    resetMessages();
     try {
       await apiFetch(`/api/transactions/${id}`, { method: "PUT", body: input });
-      await loadTransactions({ force: true, preserveStatus: true });
-      statusMessage.value = "Transaction updated.";
+      await loadTransactions({ force: true });
+      notifySuccess(t("transactions.toast.updated"));
       return true;
     } catch {
-      errorMessage.value = "Unable to update transaction.";
+      notifyError(t("transactions.toast.updateError"));
       return false;
     }
   };
 
   const deleteTransaction = async (id: number) => {
-    resetMessages();
     try {
       await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
-      await loadTransactions({ force: true, preserveStatus: true });
-      statusMessage.value = "Transaction deleted.";
+      await loadTransactions({ force: true });
+      notifySuccess(t("transactions.toast.deleted"));
       return true;
     } catch {
-      errorMessage.value = "Unable to delete transaction.";
+      notifyError(t("transactions.toast.deleteError"));
       return false;
     }
   };
@@ -311,8 +300,6 @@ export const useTransactions = () => {
     MANAGE_CATEGORIES_VALUE,
     transactions,
     loading,
-    errorMessage,
-    statusMessage,
     filterCategory,
     filterType,
     filterDateFrom,
@@ -328,8 +315,6 @@ export const useTransactions = () => {
     types,
     datePresetOptions,
     totals,
-    categoryTotals,
-    maxCategoryTotal,
     formatAmount,
     loadTransactions,
     createTransaction,
