@@ -34,7 +34,6 @@ const props = defineProps<{
   transactions: Transaction[];
   expenseCategories: SplitRule[];
   incomeCategories: IncomeCategory[];
-  formatAmount: (amount: number, currency?: string | null) => string;
   typeOptions: SelectItem[];
   getCategoryOptions: (type: string) => SelectItem[];
   filterDateFrom: string;
@@ -53,6 +52,9 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const round2 = (n: number) => Math.round(n * 100) / 100;
+// Plain 2-decimal number — the chart legend shows amounts without a
+// currency symbol (everything here is the user's base currency).
+const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // --- Aggregation ---------------------------------------------------------
 const expenses = computed(() => props.transactions.filter(tx => tx.type === "expense"));
@@ -123,15 +125,6 @@ const expenseRows = computed<ExpenseRow[]>(() => {
   }
   return rows.sort((a, b) => b.allocated - a.allocated);
 });
-
-const totalSpent = computed(() => round2(expenseRows.value.reduce((s, e) => s + e.spent, 0)));
-const totalAllocated = computed(() => round2(expenseRows.value.reduce((s, e) => s + e.allocated, 0)));
-const totalPercent = computed(() => (totalAllocated.value > 0 ? Math.round((totalSpent.value / totalAllocated.value) * 100) : 0));
-const netBalance = computed(() => round2(totalIncome.value - totalSpent.value));
-
-const subtitle = computed(() =>
-  `${t("stats.income")}: ${props.formatAmount(totalIncome.value)} · ${t("salesSplit.allocated")}: ${props.formatAmount(totalSpent.value)} / ${props.formatAmount(totalAllocated.value)} (${totalPercent.value}%)`,
-);
 
 const legendGroupsNormalized = computed<LegendGroup[]>(() => {
   const groups: LegendGroup[] = [];
@@ -218,14 +211,6 @@ const chartOptions = {
   },
 };
 
-// --- Expand / collapse ---------------------------------------------------
-const expandedCategories = ref<Set<string>>(new Set());
-function toggleCategory(key: string) {
-  const next = new Set(expandedCategories.value);
-  if (next.has(key)) next.delete(key); else next.add(key);
-  expandedCategories.value = next;
-}
-const { onEnter: onExpandEnter, onAfterEnter: onExpandAfterEnter, onLeave: onExpandLeave } = useExpandAnimation();
 
 // --- Month filter --------------------------------------------------------
 const safeParseDate = (value: string) => {
@@ -340,11 +325,10 @@ const submitEdit = (id: number) => {
 </script>
 
 <template>
-  <UCard class="glass-card">
+  <UCard class="glass-card" :ui="{ body: 'px-3 py-4 sm:p-6' }">
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <h2 class="text-xl font-semibold text-highlighted">{{ $t('overview.chartTitle') }}</h2>
-        <p class="mt-1 truncate text-xs text-muted">{{ subtitle }}</p>
+        <h4 class="truncate text-base font-semibold text-highlighted">{{ $t('overview.chartTitle') }}</h4>
       </div>
       <USelect
         :model-value="selectedMonth"
@@ -359,79 +343,58 @@ const submitEdit = (id: number) => {
 
     <template v-if="hasTransactions">
       <!-- Chart -->
-      <div v-if="chartData" class="mt-5 h-72 sm:h-80">
+      <div v-if="chartData" class="mt-4 h-72 sm:h-80">
         <Bar ref="chartRef" :data="chartData" :options="chartOptions" />
       </div>
 
-      <!-- Net balance -->
-      <div
-        v-if="totalIncome > 0 || totalSpent > 0"
-        class="mt-4 flex items-center justify-between gap-3 rounded-lg border px-3 py-1.5"
-        :class="netBalance >= 0 ? 'border-emerald-400/30 bg-emerald-500/10' : 'border-rose-400/30 bg-rose-500/10'"
-      >
-        <div class="flex items-center gap-1.5">
-          <UIcon
-            :name="netBalance >= 0 ? 'i-heroicons-arrow-trending-up' : 'i-heroicons-arrow-trending-down'"
-            class="h-4 w-4"
-            :class="netBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
-          />
-          <span class="text-xs font-medium" :class="netBalance >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'">
-            {{ netBalance >= 0 ? $t('salesSplit.remaining') : $t('salesSplit.overLimitTitle') }}
-          </span>
-        </div>
-        <span class="text-xs font-semibold" :class="netBalance >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'">
-          {{ netBalance >= 0 ? '+' : '−' }}{{ formatAmount(Math.abs(netBalance)) }}
-        </span>
-      </div>
-
       <!-- Category-grouped, editable ledger -->
-      <div class="mt-4 space-y-4">
+      <div class="mt-3 space-y-3">
         <div v-for="group in legendGroupsNormalized" :key="group.label">
           <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-dimmed">{{ group.label }}</p>
-          <div class="grid gap-2 lg:grid-cols-2">
-            <div v-for="item in group.items" :key="`${group.label}:${item.label}`" class="surface-panel rounded-xl">
-              <div
-                class="flex items-center gap-2 px-3 py-2"
-                :class="item.transactions.length ? 'cursor-pointer select-none' : ''"
-                @click="item.transactions.length ? toggleCategory(`${group.label}:${item.label}`) : undefined"
-              >
-                <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.color }" />
-                <span class="flex-1 text-xs font-medium text-toned">{{ item.label }}</span>
-                <span class="text-xs text-muted">
-                  {{ formatAmount(item.value) }}
-                  <template v-if="item.allocated"> / {{ formatAmount(item.allocated) }}</template>
-                  ({{ item.percent }}%)
-                </span>
-                <UIcon
-                  v-if="item.transactions.length"
-                  :name="expandedCategories.has(`${group.label}:${item.label}`) ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                  class="h-3.5 w-3.5 shrink-0 text-dimmed"
-                />
-              </div>
-              <div class="px-3 pb-1">
-                <div class="relative h-1.5 rounded-full bg-elevated">
-                  <div
-                    class="h-1.5 rounded-full transition-all"
-                    :style="{
-                      width: item.percent > 0 ? `${Math.min(item.percent, 100)}%` : '2px',
-                      backgroundColor: item.percent > 100 ? '#ef4444' : item.color,
-                    }"
-                  />
+          <div class="grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
+            <UPopover
+              v-for="item in group.items"
+              :key="`${group.label}:${item.label}`"
+              :ui="{ content: 'w-[var(--reka-popper-anchor-width)]' }"
+            >
+              <!-- Trigger: the category card stays a fixed height, so a
+                   neighbour never stretches and no row gap appears. -->
+              <div class="group surface-panel min-w-0 cursor-pointer overflow-hidden rounded-xl">
+                <div class="flex items-center gap-2 px-3 py-2">
+                  <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.color }" />
+                  <span class="min-w-0 flex-1 truncate text-xs font-medium text-toned">{{ item.label }}</span>
+                  <span class="shrink-0 whitespace-nowrap text-xs text-muted">
+                    {{ fmt(item.value) }}
+                    <template v-if="item.allocated"> / {{ fmt(item.allocated) }}</template>
+                    ({{ item.percent }}%)
+                  </span>
+                  <UIcon name="i-heroicons-chevron-down" class="h-3.5 w-3.5 shrink-0 text-dimmed transition-transform group-data-[state=open]:rotate-180" />
+                </div>
+                <div class="px-3 pb-1">
+                  <div class="relative h-1.5 rounded-full bg-elevated">
+                    <div
+                      class="h-1.5 rounded-full transition-all"
+                      :style="{
+                        width: item.percent > 0 ? `${Math.min(item.percent, 100)}%` : '2px',
+                        backgroundColor: item.percent > 100 ? '#ef4444' : item.color,
+                      }"
+                    />
+                  </div>
                 </div>
               </div>
-              <Transition @enter="onExpandEnter" @after-enter="onExpandAfterEnter" @leave="onExpandLeave">
-                <div
-                  v-if="expandedCategories.has(`${group.label}:${item.label}`) && item.transactions.length"
-                  class="space-y-2 border-t border-default px-3 py-2"
-                >
+
+              <!-- Drill-down: transactions for this category, editable -->
+              <template #content>
+                <div class="max-h-[60vh] space-y-2 overflow-y-auto p-3">
+                  <template v-if="item.transactions.length">
                   <div v-for="tx in item.transactions" :key="tx.id">
                     <!-- Inline edit -->
                     <template v-if="editingId === tx.id">
-                      <div class="grid gap-3 md:grid-cols-2">
-                        <UFormField :label="$t('form.date')">
+                      <div class="grid gap-2 sm:grid-cols-2">
+                        <UFormField :label="$t('form.date')" size="sm">
                           <UPopover v-model:open="editDateOpen" :content="{ side: 'bottom', sideOffset: 8 }">
                             <template #anchor>
-                              <UInputDate v-model="editDateValue" locale="cs">
+                              <UInputDate v-model="editDateValue" locale="cs" size="sm" class="w-full">
                                 <template #trailing>
                                   <UButton icon="i-heroicons-calendar-days" color="neutral" variant="ghost" size="xs" @click="editDateOpen = !editDateOpen" />
                                 </template>
@@ -442,27 +405,27 @@ const submitEdit = (id: number) => {
                             </template>
                           </UPopover>
                         </UFormField>
-                        <UFormField :label="$t('form.name')">
-                          <UInput v-model="editItem.name" />
+                        <UFormField :label="$t('form.name')" size="sm">
+                          <UInput v-model="editItem.name" size="sm" class="w-full" />
                         </UFormField>
-                        <UFormField :label="$t('form.amount')">
-                          <UInputNumber v-model="editItem.amount" :step="0.01" :format-options="{ minimumFractionDigits: 2, maximumFractionDigits: 2 }" />
+                        <UFormField :label="$t('form.amount')" size="sm">
+                          <UInputNumber v-model="editItem.amount" size="sm" class="w-full" :step="0.01" :format-options="{ minimumFractionDigits: 2, maximumFractionDigits: 2 }" />
                         </UFormField>
-                        <UFormField :label="$t('form.currency')">
-                          <UInput v-model="editItem.currency" />
+                        <UFormField :label="$t('form.currency')" size="sm">
+                          <UInput v-model="editItem.currency" size="sm" class="w-full" />
                         </UFormField>
-                        <UFormField :label="$t('form.type')">
-                          <USelect v-model="editItem.type" :items="typeOptions" :leading-icon="typeOptions.find(o => o.value === editItem.type)?.icon" />
+                        <UFormField :label="$t('form.type')" size="sm">
+                          <USelect v-model="editItem.type" :items="typeOptions" :leading-icon="typeOptions.find(o => o.value === editItem.type)?.icon" size="sm" class="w-full" />
                         </UFormField>
-                        <UFormField :label="$t('form.category')">
-                          <USelect v-model="editItem.category" :items="editCategoryOptions" :leading-icon="editCategoryOptions.find(o => o.value === editItem.category)?.icon" />
+                        <UFormField :label="$t('form.category')" size="sm">
+                          <USelect v-model="editItem.category" :items="editCategoryOptions" :leading-icon="editCategoryOptions.find(o => o.value === editItem.category)?.icon" size="sm" class="w-full" />
                         </UFormField>
                       </div>
-                      <div class="mt-3 flex gap-2">
-                        <UButton color="primary" variant="solid" size="sm" @click="submitEdit(tx.id)">
+                      <div class="mt-2 flex gap-2">
+                        <UButton color="primary" variant="solid" size="xs" @click="submitEdit(tx.id)">
                           {{ $t('transactions.saveChanges') }}
                         </UButton>
-                        <UButton variant="outline" color="neutral" size="sm" @click="cancelEdit">
+                        <UButton variant="outline" color="neutral" size="xs" @click="cancelEdit">
                           {{ $t('common.cancel') }}
                         </UButton>
                       </div>
@@ -470,15 +433,19 @@ const submitEdit = (id: number) => {
                     <!-- Display -->
                     <div v-else class="flex items-center gap-2 text-xs text-muted">
                       <span class="shrink-0 text-dimmed">{{ formatDate(tx.date) }}</span>
-                      <span class="flex-1 truncate text-toned">{{ tx.name }}</span>
-                      <span class="shrink-0 font-medium text-toned">{{ formatAmount(Math.abs(tx.amount), tx.currency) }}</span>
+                      <span class="min-w-0 flex-1 truncate text-toned">{{ tx.name }}</span>
+                      <span class="shrink-0 font-medium text-toned">{{ fmt(Math.abs(tx.amount)) }}</span>
                       <UButton icon="i-heroicons-pencil-square" color="neutral" variant="ghost" size="xs" :aria-label="$t('common.edit')" @click="startEdit(tx)" />
                       <UButton icon="i-heroicons-trash" color="error" variant="ghost" size="xs" :aria-label="$t('common.delete')" @click="emit('delete', tx.id)" />
                     </div>
                   </div>
+                  </template>
+                  <p v-else class="px-1 py-3 text-center text-xs text-dimmed">
+                    {{ $t('transactions.emptyDesc') }}
+                  </p>
                 </div>
-              </Transition>
-            </div>
+              </template>
+            </UPopover>
           </div>
         </div>
       </div>
