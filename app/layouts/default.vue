@@ -92,7 +92,7 @@ watch(() => route.fullPath, () => { mobileOpen.value = false; });
         </nav>
       </UContainer>
     </header>
-    <main class="py-8 md:py-10">
+    <main class="py-4 md:py-8">
       <UContainer>
         <NuxtPage />
       </UContainer>

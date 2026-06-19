@@ -69,24 +69,18 @@ useHead({ title: t("overview.pageTitle") });
 </script>
 
 <template>
-  <div class="flex flex-col gap-8">
+  <div class="flex flex-col gap-2 sm:gap-4">
     <StatsCards :totals="totals" :format-amount="formatAmount" />
-
-    <UAlert
-      v-if="loading"
-      color="neutral"
-      variant="subtle"
-      class="glass-card"
-      :title="$t('overview.loadingTitle')"
-      :description="$t('overview.loadingDesc')"
-    />
 
     <!-- One combined view: filters + chart + the category-grouped, editable
          ledger (each category drills down to its transactions). Client-only
          (canvas + heavy render); the data is already in the SSR payload, so
-         it paints instantly on hydration. -->
+         it paints instantly on hydration. While a filter reload is in
+         flight, a skeleton stands in for the chart (no loading banner). -->
     <ClientOnly>
+      <OverviewChartSkeleton v-if="loading" />
       <OverviewChart
+        v-else
         v-model:filter-date-from="filterDateFrom"
         v-model:filter-date-to="filterDateTo"
         v-model:filter-date-preset="filterDatePreset"
@@ -95,15 +89,11 @@ useHead({ title: t("overview.pageTitle") });
         :income-categories="incomeCategories"
         :type-options="typeOptions"
         :get-category-options="getCategoryOptions"
-        :format-amount="formatAmount"
         @update="handleUpdate"
         @delete="handleDelete"
       />
       <template #fallback>
-        <UCard class="glass-card">
-          <USkeleton class="h-6 w-48" />
-          <USkeleton class="mt-4 h-72 w-full sm:h-80" />
-        </UCard>
+        <OverviewChartSkeleton />
       </template>
     </ClientOnly>
   </div>
