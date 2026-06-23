@@ -41,6 +41,10 @@ export default defineNuxtConfig({
     // public URL, e.g. NUXT_AUTH_PUBLIC_URL=https://auth.example.com. Empty
     // → falls back to authServiceUrl (dev / single-URL setups).
     authPublicUrl: "",
+    // Parent domain for the shared auth cookies (NUXT_COOKIE_DOMAIN, e.g.
+    // `.meizuno.com`) so one sign-in spans every *.meizuno.com app. Empty in
+    // dev → host-only cookies on localhost.
+    cookieDomain: "",
   },
 
   // Auto-import server-side use-case functions from server/services

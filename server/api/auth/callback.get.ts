@@ -1,19 +1,10 @@
-import { getQuery, sendRedirect } from "h3";
+import { sendRedirect } from "h3";
 
+// OAuth return target. The auth service has already set the shared
+// access/refresh cookies on COOKIE_DOMAIN before redirecting here — there are
+// no tokens in the query (they must never ride in a URL). Just confirm the
+// session resolves from those cookies and land the user home.
 export default defineEventHandler(async (event) => {
-  const query = getQuery(event);
-  const accessToken = typeof query.access_token === "string" ? query.access_token : "";
-  const refreshToken = typeof query.refresh_token === "string" ? query.refresh_token : "";
-
-  if (!accessToken || !refreshToken) {
-    return sendRedirect(event, "/login?error=missing_tokens");
-  }
-
-  const user = await verifyAccessToken(accessToken);
-  if (!user) {
-    return sendRedirect(event, "/login?error=invalid_token");
-  }
-
-  setAuthCookies(event, accessToken, refreshToken);
-  return sendRedirect(event, "/");
+  const user = await authenticate(event);
+  return sendRedirect(event, user ? "/" : "/login?error=auth_failed");
 });

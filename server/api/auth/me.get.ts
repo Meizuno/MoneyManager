@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
 
   const token = (event.context.accessToken as string | undefined)
     ?? getHeader(event, "authorization")?.slice(7)
-    ?? getCookie(event, "mm_access")
+    ?? getCookie(event, "access_token")
     ?? "";
 
   const profile = await $fetch<{ id: string; email: string; name: string; avatar_url: string }>(
