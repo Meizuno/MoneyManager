@@ -161,7 +161,7 @@ const submitForm = () => {
               </UInputDate>
             </template>
             <template #content>
-              <UCalendar v-model="formDateValue" locale="cs" />
+              <UCalendar v-model="formDateValue" locale="cs" @update:model-value="formDateOpen = false" />
             </template>
           </UPopover>
         </UFormField>

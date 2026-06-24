@@ -59,7 +59,7 @@ export const useTransactions = () => {
     other: "i-heroicons-ellipsis-horizontal",
   };
 
-  const typeValues = ["income", "expense"];
+  const typeValues = ["expense", "income"];
 
   const categoryValuesByType: Record<string, string[]> = {
     income: ["sale", "interest", "other"],
