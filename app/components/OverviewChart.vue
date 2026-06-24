@@ -207,7 +207,7 @@ const chartOptions = {
   },
   scales: {
     y: { beginAtZero: true, grid: { color: "rgba(148,163,184,0.16)" }, border: { display: false }, ticks: { color: "#64748b" } },
-    x: { grid: { display: false }, border: { display: false }, ticks: { color: "#64748b" } },
+    x: { grid: { display: false }, border: { display: false }, ticks: { color: "#475569" } },
   },
 };
 
@@ -325,7 +325,14 @@ const submitEdit = (id: number) => {
 </script>
 
 <template>
-  <UCard class="glass-card" :ui="{ body: 'px-3 py-4 sm:p-6' }">
+  <UCard
+    class="glass-card relative overflow-hidden rounded-2xl bg-linear-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800"
+    :ui="{ body: 'px-3 py-4 sm:p-6' }"
+  >
+    <!-- Ambient glow (ai-chat ProseChart style) -->
+    <div class="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-cyan-400/10 blur-2xl" />
+    <div class="pointer-events-none absolute -bottom-16 -left-12 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl" />
+    <div class="relative">
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <h4 class="truncate text-base font-semibold text-highlighted">{{ $t('overview.chartTitle') }}</h4>
@@ -359,7 +366,7 @@ const submitEdit = (id: number) => {
             >
               <!-- Trigger: the category card stays a fixed height, so a
                    neighbour never stretches and no row gap appears. -->
-              <div class="group surface-panel min-w-0 cursor-pointer overflow-hidden rounded-xl">
+              <div class="group min-w-0 cursor-pointer overflow-hidden rounded-xl border border-slate-200/70 bg-white/70 dark:border-slate-700/60 dark:bg-slate-900/50">
                 <div class="flex items-center gap-2 px-3 py-2">
                   <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.color }" />
                   <span class="min-w-0 flex-1 truncate text-xs font-medium text-toned">{{ item.label }}</span>
@@ -371,7 +378,7 @@ const submitEdit = (id: number) => {
                   <UIcon name="i-heroicons-chevron-down" class="h-3.5 w-3.5 shrink-0 text-dimmed transition-transform group-data-[state=open]:rotate-180" />
                 </div>
                 <div class="px-3 pb-1">
-                  <div class="relative h-1.5 rounded-full bg-elevated">
+                  <div class="relative h-1.5 rounded-full bg-slate-200/70 dark:bg-slate-700/70">
                     <div
                       class="h-1.5 rounded-full transition-all"
                       :style="{
@@ -460,6 +467,7 @@ const submitEdit = (id: number) => {
       <UButton color="primary" variant="solid" to="/transactions">
         {{ $t('transactions.addManually') }}
       </UButton>
+    </div>
     </div>
   </UCard>
 </template>
