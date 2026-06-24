@@ -274,6 +274,18 @@ function onMonthChange(value: string) {
   emit("update:filterDateTo", `${year}-${pad(month)}-${pad(lastDay)}`);
 }
 
+// --- Collapsable category drill-down -------------------------------------
+// Keyed by `${group.label}:${item.label}` so the same label under both
+// Expenses and Income expands independently.
+const expandedCategories = ref<Set<string>>(new Set());
+function toggleCategory(key: string) {
+  const next = new Set(expandedCategories.value);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  expandedCategories.value = next;
+}
+const { onEnter: onExpandEnter, onAfterEnter: onExpandAfterEnter, onLeave: onExpandLeave } = useExpandAnimation();
+
 // --- Inline edit ---------------------------------------------------------
 const editingId = ref<number | null>(null);
 const editDateOpen = ref(false);
@@ -359,15 +371,17 @@ const submitEdit = (id: number) => {
         <div v-for="group in legendGroupsNormalized" :key="group.label">
           <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-dimmed">{{ group.label }}</p>
           <div class="grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
-            <UPopover
+            <div
               v-for="item in group.items"
               :key="`${group.label}:${item.label}`"
-              :ui="{ content: 'w-[var(--reka-popper-anchor-width)]' }"
+              class="group min-w-0 overflow-hidden rounded-xl border border-slate-200/70 bg-white/70 dark:border-slate-700/60 dark:bg-slate-900/50"
             >
-              <!-- Trigger: the category card stays a fixed height, so a
-                   neighbour never stretches and no row gap appears. -->
-              <div class="group min-w-0 cursor-pointer overflow-hidden rounded-xl border border-slate-200/70 bg-white/70 dark:border-slate-700/60 dark:bg-slate-900/50">
-                <div class="flex items-center gap-2 px-3 py-2">
+              <!-- Header: click to expand this category's transactions inline. -->
+              <div
+                class="flex items-center gap-2 px-3 py-2"
+                :class="item.transactions.length ? 'cursor-pointer select-none' : ''"
+                @click="item.transactions.length ? toggleCategory(`${group.label}:${item.label}`) : undefined"
+              >
                   <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.color }" />
                   <span class="min-w-0 flex-1 truncate text-xs font-medium text-toned">{{ item.label }}</span>
                   <span class="shrink-0 whitespace-nowrap text-xs text-muted">
@@ -375,7 +389,11 @@ const submitEdit = (id: number) => {
                     <template v-if="item.allocated"> / {{ fmt(item.allocated) }}</template>
                     ({{ item.percent }}%)
                   </span>
-                  <UIcon name="i-heroicons-chevron-down" class="h-3.5 w-3.5 shrink-0 text-dimmed transition-transform group-data-[state=open]:rotate-180" />
+                  <UIcon
+                    v-if="item.transactions.length"
+                    :name="expandedCategories.has(`${group.label}:${item.label}`) ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                    class="h-3.5 w-3.5 shrink-0 text-dimmed"
+                  />
                 </div>
                 <div class="px-3 pb-1">
                   <div class="relative h-1.5 rounded-full bg-slate-200/70 dark:bg-slate-700/70">
@@ -388,12 +406,13 @@ const submitEdit = (id: number) => {
                     />
                   </div>
                 </div>
-              </div>
 
-              <!-- Drill-down: transactions for this category, editable -->
-              <template #content>
-                <div class="max-h-[60vh] space-y-2 overflow-y-auto p-3">
-                  <template v-if="item.transactions.length">
+              <!-- Collapsable drill-down: transactions for this category, editable -->
+              <Transition @enter="onExpandEnter" @after-enter="onExpandAfterEnter" @leave="onExpandLeave">
+                <div
+                  v-if="expandedCategories.has(`${group.label}:${item.label}`) && item.transactions.length"
+                  class="space-y-2 border-t border-slate-200/70 px-3 py-2 dark:border-slate-700/60"
+                >
                   <div v-for="tx in item.transactions" :key="tx.id">
                     <!-- Inline edit -->
                     <template v-if="editingId === tx.id">
@@ -446,13 +465,9 @@ const submitEdit = (id: number) => {
                       <UButton icon="i-heroicons-trash" color="error" variant="ghost" size="xs" :aria-label="$t('common.delete')" @click="emit('delete', tx.id)" />
                     </div>
                   </div>
-                  </template>
-                  <p v-else class="px-1 py-3 text-center text-xs text-dimmed">
-                    {{ $t('transactions.emptyDesc') }}
-                  </p>
                 </div>
-              </template>
-            </UPopover>
+              </Transition>
+            </div>
           </div>
         </div>
       </div>
