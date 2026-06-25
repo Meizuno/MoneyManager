@@ -9,6 +9,7 @@ import {
   createExpenseCategoryScoped,
   deleteExpenseCategoryScoped,
   listExpenseCategoriesScoped,
+  reorderExpenseCategoriesScoped,
   updateExpenseCategoryScoped
 } from '../utils/expense-categories'
 
@@ -38,4 +39,9 @@ export async function updateExpenseCategory(event: H3Event, id: number, input: U
 export async function deleteExpenseCategory(event: H3Event, id: number) {
   const { userId } = await authorize(event)
   return deleteExpenseCategoryScoped(userId, id)
+}
+
+export async function reorderExpenseCategories(event: H3Event, ids: number[]) {
+  const { userId } = await authorize(event)
+  return reorderExpenseCategoriesScoped(userId, ids)
 }

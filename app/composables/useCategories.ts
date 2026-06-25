@@ -94,6 +94,16 @@ export const useCategories = () => {
     splitRules.value = splitRules.value.filter((r) => r.id !== id);
   };
 
+  // Persist a new ordering (position = array index) and adopt the server's
+  // canonical reordered list.
+  const reorderRules = async (ids: number[]) => {
+    const { rules } = await apiFetch<{ rules: SplitRule[] }>("/api/sales-split/reorder", {
+      method: "PUT",
+      body: { ids },
+    });
+    if (rules) splitRules.value = rules;
+  };
+
   // ---- income categories CRUD ---------------------------------------------
   const addCategory = async () => {
     savingCategory.value = true;
@@ -117,6 +127,14 @@ export const useCategories = () => {
     incomeCategories.value = incomeCategories.value.filter((c) => c.id !== id);
   };
 
+  const reorderCategories = async (ids: number[]) => {
+    const rows = await apiFetch<IncomeCategory[]>("/api/income-categories/reorder", {
+      method: "PUT",
+      body: { ids },
+    });
+    if (rows) incomeCategories.value = rows;
+  };
+
   return {
     splitRules,
     incomeCategories,
@@ -130,8 +148,10 @@ export const useCategories = () => {
     addRule,
     updateRule,
     removeRule,
+    reorderRules,
     addCategory,
     updateCategory,
     removeCategory,
+    reorderCategories,
   };
 };

@@ -21,9 +21,11 @@ const {
   addRule,
   updateRule,
   removeRule,
+  reorderRules,
   addCategory,
   updateCategory,
   removeCategory,
+  reorderCategories,
 } = useCategories();
 
 await Promise.all([loadSummary(), ensureSplitRules(), ensureIncomeCategories()]);
@@ -86,6 +88,37 @@ function onCategoryInput(cat: IncomeCategory) {
   clearTimeout(categoryTimers[cat.id]);
   categoryTimers[cat.id] = setTimeout(() => { void updateCategory(cat); }, 600);
 }
+
+// ---------------------------------------------------------------------------
+// Drag-and-drop reordering. The grip handle is the only draggable element so
+// the label/percent inputs stay fully selectable; the whole card is the drop
+// target. On drop we move the item locally and persist the new id order.
+// ---------------------------------------------------------------------------
+const dragRuleIndex = ref<number | null>(null);
+function onRuleDrop(targetIndex: number) {
+  const from = dragRuleIndex.value;
+  dragRuleIndex.value = null;
+  if (from === null || from === targetIndex) return;
+  const arr = [...rules.value];
+  const [moved] = arr.splice(from, 1);
+  if (!moved) return;
+  arr.splice(targetIndex, 0, moved);
+  rules.value = arr;
+  void reorderRules(arr.map((r) => r.id));
+}
+
+const dragCategoryIndex = ref<number | null>(null);
+function onCategoryDrop(targetIndex: number) {
+  const from = dragCategoryIndex.value;
+  dragCategoryIndex.value = null;
+  if (from === null || from === targetIndex) return;
+  const arr = [...categories.value];
+  const [moved] = arr.splice(from, 1);
+  if (!moved) return;
+  arr.splice(targetIndex, 0, moved);
+  categories.value = arr;
+  void reorderCategories(arr.map((c) => c.id));
+}
 </script>
 
 <template>
@@ -133,10 +166,21 @@ function onCategoryInput(cat: IncomeCategory) {
           {{ $t('salesSplit.noRules') }}
         </div>
 
-        <div v-else class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div v-else class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div
-            v-for="rule in rules" :key="rule.id"
-            class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5">
+            v-for="(rule, i) in rules" :key="rule.id"
+            class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5 transition-opacity"
+            :class="{ 'opacity-40': dragRuleIndex === i }"
+            @dragover.prevent
+            @drop="onRuleDrop(i)">
+            <span
+              draggable="true"
+              title="Drag to reorder"
+              class="shrink-0 cursor-grab text-dimmed active:cursor-grabbing"
+              @dragstart="dragRuleIndex = i"
+              @dragend="dragRuleIndex = null">
+              <UIcon name="i-lucide-grip-vertical" class="size-4" />
+            </span>
             <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" :class="colorOfRule(rule).bar" />
             <input
               v-model="rule.label"
@@ -208,10 +252,21 @@ function onCategoryInput(cat: IncomeCategory) {
           {{ $t('incomeCategories.noCategories') }}
         </div>
 
-        <div v-else class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div v-else class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div
-            v-for="cat in categories" :key="cat.id"
-            class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5">
+            v-for="(cat, i) in categories" :key="cat.id"
+            class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5 transition-opacity"
+            :class="{ 'opacity-40': dragCategoryIndex === i }"
+            @dragover.prevent
+            @drop="onCategoryDrop(i)">
+            <span
+              draggable="true"
+              title="Drag to reorder"
+              class="shrink-0 cursor-grab text-dimmed active:cursor-grabbing"
+              @dragstart="dragCategoryIndex = i"
+              @dragend="dragCategoryIndex = null">
+              <UIcon name="i-lucide-grip-vertical" class="size-4" />
+            </span>
             <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" :class="colorOfCategory(cat).bar" />
             <input
               v-model="cat.label"

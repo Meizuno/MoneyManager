@@ -9,6 +9,7 @@ import {
   createIncomeCategoryScoped,
   deleteIncomeCategoryScoped,
   listIncomeCategoriesScoped,
+  reorderIncomeCategoriesScoped,
   updateIncomeCategoryScoped
 } from '../utils/income-categories'
 
@@ -39,4 +40,9 @@ export async function updateIncomeCategory(event: H3Event, id: number, input: Up
 export async function deleteIncomeCategory(event: H3Event, id: number) {
   const { userId } = await authorize(event)
   return deleteIncomeCategoryScoped(userId, id)
+}
+
+export async function reorderIncomeCategories(event: H3Event, ids: number[]) {
+  const { userId } = await authorize(event)
+  return reorderIncomeCategoriesScoped(userId, ids)
 }

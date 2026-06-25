@@ -39,3 +39,10 @@ export type ExpenseCategory = {
   position: number
   created_at: string
 }
+
+// Reorder — the desired full ordering of category ids; the service assigns
+// position = array index. Structural mutation (full-access only).
+export const reorderExpenseCategoriesSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1)
+})
+export type ReorderExpenseCategoriesInput = z.infer<typeof reorderExpenseCategoriesSchema>

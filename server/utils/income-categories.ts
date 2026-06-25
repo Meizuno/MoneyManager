@@ -36,6 +36,19 @@ export async function listIncomeCategoriesScoped(viewerId: string): Promise<Inco
   return rows.map(toIncomeCategory)
 }
 
+// Apply a new ordering: position = index in `ids`. Each update is scoped by
+// user_id, so foreign ids silently no-op. Wrapped in a transaction so the
+// list is never half-reordered.
+export async function reorderIncomeCategoriesScoped(viewerId: string, ids: number[]): Promise<IncomeCategory[]> {
+  const db = getPrisma()
+  await db.$transaction(
+    ids.map((id, index) =>
+      db.incomeCategory.updateMany({ where: { id, user_id: viewerId }, data: { position: index } })
+    )
+  )
+  return listIncomeCategoriesScoped(viewerId)
+}
+
 // Scoped existence check used by the transaction layer to validate a
 // supplied category id before writing. Mirrors expenseCategoryExists —
 // the user_id filter keeps a stranger's id from validating against this
