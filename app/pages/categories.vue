@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useSortable } from "@vueuse/integrations/useSortable";
 import type { SplitRule, IncomeCategory } from "~/composables/useCategories";
 
 const { t } = useI18n();
@@ -90,35 +91,31 @@ function onCategoryInput(cat: IncomeCategory) {
 }
 
 // ---------------------------------------------------------------------------
-// Drag-and-drop reordering. The grip handle is the only draggable element so
-// the label/percent inputs stay fully selectable; the whole card is the drop
-// target. On drop we move the item locally and persist the new id order.
+// Drag-and-drop reordering (SortableJS via useSortable): live neighbour shift,
+// touch support, and animation. The grip handle (.drag-handle) is the only
+// drag affordance so the label/percent inputs stay fully selectable.
+// useSortable mutates the bound array in place; once that settles (nextTick)
+// we persist the new id order.
 // ---------------------------------------------------------------------------
-const dragRuleIndex = ref<number | null>(null);
-function onRuleDrop(targetIndex: number) {
-  const from = dragRuleIndex.value;
-  dragRuleIndex.value = null;
-  if (from === null || from === targetIndex) return;
-  const arr = [...rules.value];
-  const [moved] = arr.splice(from, 1);
-  if (!moved) return;
-  arr.splice(targetIndex, 0, moved);
-  rules.value = arr;
-  void reorderRules(arr.map((r) => r.id));
-}
+const rulesEl = ref<HTMLElement | null>(null);
+useSortable(rulesEl, rules, {
+  handle: ".drag-handle",
+  animation: 150,
+  onUpdate: async () => {
+    await nextTick();
+    void reorderRules(rules.value.map((r) => r.id));
+  },
+});
 
-const dragCategoryIndex = ref<number | null>(null);
-function onCategoryDrop(targetIndex: number) {
-  const from = dragCategoryIndex.value;
-  dragCategoryIndex.value = null;
-  if (from === null || from === targetIndex) return;
-  const arr = [...categories.value];
-  const [moved] = arr.splice(from, 1);
-  if (!moved) return;
-  arr.splice(targetIndex, 0, moved);
-  categories.value = arr;
-  void reorderCategories(arr.map((c) => c.id));
-}
+const categoriesEl = ref<HTMLElement | null>(null);
+useSortable(categoriesEl, categories, {
+  handle: ".drag-handle",
+  animation: 150,
+  onUpdate: async () => {
+    await nextTick();
+    void reorderCategories(categories.value.map((c) => c.id));
+  },
+});
 </script>
 
 <template>
@@ -166,19 +163,13 @@ function onCategoryDrop(targetIndex: number) {
           {{ $t('salesSplit.noRules') }}
         </div>
 
-        <div v-else class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-else ref="rulesEl" class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div
-            v-for="(rule, i) in rules" :key="rule.id"
-            class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5 transition-opacity"
-            :class="{ 'opacity-40': dragRuleIndex === i }"
-            @dragover.prevent
-            @drop="onRuleDrop(i)">
+            v-for="rule in rules" :key="rule.id"
+            class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5">
             <span
-              draggable="true"
               title="Drag to reorder"
-              class="shrink-0 cursor-grab text-dimmed active:cursor-grabbing"
-              @dragstart="dragRuleIndex = i"
-              @dragend="dragRuleIndex = null">
+              class="drag-handle shrink-0 cursor-grab text-dimmed active:cursor-grabbing">
               <UIcon name="i-lucide-grip-vertical" class="size-4" />
             </span>
             <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" :class="colorOfRule(rule).bar" />
@@ -252,19 +243,13 @@ function onCategoryDrop(targetIndex: number) {
           {{ $t('incomeCategories.noCategories') }}
         </div>
 
-        <div v-else class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-else ref="categoriesEl" class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div
-            v-for="(cat, i) in categories" :key="cat.id"
-            class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5 transition-opacity"
-            :class="{ 'opacity-40': dragCategoryIndex === i }"
-            @dragover.prevent
-            @drop="onCategoryDrop(i)">
+            v-for="cat in categories" :key="cat.id"
+            class="glass-card flex items-center gap-2 rounded-xl px-3 py-2.5">
             <span
-              draggable="true"
               title="Drag to reorder"
-              class="shrink-0 cursor-grab text-dimmed active:cursor-grabbing"
-              @dragstart="dragCategoryIndex = i"
-              @dragend="dragCategoryIndex = null">
+              class="drag-handle shrink-0 cursor-grab text-dimmed active:cursor-grabbing">
               <UIcon name="i-lucide-grip-vertical" class="size-4" />
             </span>
             <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" :class="colorOfCategory(cat).bar" />
