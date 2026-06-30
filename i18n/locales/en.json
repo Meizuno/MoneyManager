@@ -34,7 +34,9 @@
     "loadingDesc": "Fetching your latest transactions.",
     "pageTitle": "Money Manager",
     "chartTitle": "Income vs expenses",
-    "chartEmpty": "No transactions in this period yet."
+    "chartEmpty": "No transactions in this period yet.",
+    "viewChart": "Chart view",
+    "viewList": "List view"
   },
   "stats": {
     "income": "Income",
