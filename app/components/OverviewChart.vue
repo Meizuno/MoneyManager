@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { parseDate } from "@internationalized/date";
 import { Bar } from "vue-chartjs";
 import type { Transaction, UpdateTransactionPayload } from "#shared/schemas/transaction";
 import type { SplitRule, IncomeCategory } from "~/composables/useCategories";
 
-// Combined overview: filters + an Allocated-vs-Spent bar chart + a
-// category-grouped ledger. The grouped legend IS the transaction list —
-// each category expands to its transactions, editable inline — so the
-// data is shown once, not duplicated across a chart and a separate list.
-// Rendered client-only (canvas), driven by the period's transactions.
+// Combined overview: filters + two switchable views of the same period.
+// The "chart" view is an Allocated-vs-Spent bar chart plus a
+// category-grouped ledger (each category expands to its transactions,
+// editable inline). The "list" view is a flat, chronological transaction
+// list — same rows, editable inline. A segmented toggle in the header
+// flips between them. Rendered client-only (canvas).
 interface SelectItem { label: string; value: string; icon?: string }
 
 type LegendItem = {
@@ -138,6 +138,26 @@ const legendGroupsNormalized = computed<LegendGroup[]>(() => {
 
 const hasTransactions = computed(() => props.transactions.length > 0);
 
+// --- View toggle (chart vs flat list) ------------------------------------
+const viewMode = ref<"chart" | "list">("chart");
+const viewOptions = computed(() => [
+  { value: "chart" as const, icon: "i-heroicons-chart-bar", label: t("overview.viewChart") },
+  { value: "list" as const, icon: "i-heroicons-list-bullet", label: t("overview.viewList") },
+]);
+
+// Category id → colour, across both expense and income categories, so the
+// flat list can show a coloured chip per row (the grouped view gets its
+// colour from the category heading instead).
+const catColorById = computed(() => {
+  const m = new Map<number, string>();
+  for (const c of props.expenseCategories) m.set(c.id, colorOf(c.color));
+  for (const c of props.incomeCategories) m.set(c.id, colorOf(c.color));
+  return m;
+});
+const flatTransactions = computed(() =>
+  [...props.transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id),
+);
+
 // --- Chart ---------------------------------------------------------------
 const chartData = computed(() => {
   const items = expenseRows.value;
@@ -213,13 +233,6 @@ const chartOptions = {
 
 
 // --- Month filter --------------------------------------------------------
-const safeParseDate = (value: string) => {
-  try {
-    return value ? parseDate(value) : undefined;
-  } catch {
-    return undefined;
-  }
-};
 const pad = (n: number) => String(n).padStart(2, "0");
 
 // Options are "YYYY-M" per month plus "YYYY-0" for a whole year, from
@@ -285,55 +298,6 @@ function toggleCategory(key: string) {
   expandedCategories.value = next;
 }
 const { onEnter: onExpandEnter, onAfterEnter: onExpandAfterEnter, onLeave: onExpandLeave } = useExpandAnimation();
-
-// --- Inline edit ---------------------------------------------------------
-const editingId = ref<number | null>(null);
-const editDateOpen = ref(false);
-const editItem = ref({
-  date: "", name: "", amount: null as number | null, currency: "", type: "expense", category: "",
-});
-const editCategoryOptions = computed(() => props.getCategoryOptions(editItem.value.type));
-watch(() => editItem.value.type, (type) => {
-  const opts = props.getCategoryOptions(type);
-  if (!opts.some(o => o.value === editItem.value.category)) {
-    editItem.value.category = opts[0]?.value ?? "";
-  }
-});
-const editDateValue = computed({
-  get: () => safeParseDate(editItem.value.date),
-  set: (value) => { editItem.value.date = value ? value.toString() : ""; },
-});
-const formatDate = (iso: string) => {
-  if (!iso) return iso;
-  const [y, m, d] = iso.split("-");
-  return `${d}.${m}.${y}`;
-};
-const startEdit = (item: Transaction) => {
-  editingId.value = item.id;
-  editItem.value = {
-    date: item.date,
-    name: item.name,
-    amount: item.amount,
-    currency: item.currency ?? "",
-    type: item.type ?? "expense",
-    category: item.category.id ? String(item.category.id) : "",
-  };
-};
-const cancelEdit = () => { editingId.value = null; };
-const submitEdit = (id: number) => {
-  emit("update", {
-    id,
-    input: {
-      date: editItem.value.date,
-      name: editItem.value.name,
-      amount: editItem.value.amount ?? "",
-      currency: editItem.value.currency,
-      type: editItem.value.type as "income" | "expense",
-      category: editItem.value.category || undefined,
-    },
-  });
-  editingId.value = null;
-};
 </script>
 
 <template>
@@ -349,18 +313,34 @@ const submitEdit = (id: number) => {
       <div class="min-w-0">
         <h4 class="truncate text-base font-semibold text-highlighted">{{ $t('overview.chartTitle') }}</h4>
       </div>
-      <USelect
-        :model-value="selectedMonth"
-        :items="monthOptions"
-        size="sm"
-        color="neutral"
-        variant="subtle"
-        class="shrink-0"
-        @update:model-value="onMonthChange($event as string)"
-      />
+      <div class="flex shrink-0 items-center gap-2">
+        <!-- Chart ↔ list view toggle -->
+        <UButtonGroup v-if="hasTransactions" size="sm">
+          <UButton
+            v-for="opt in viewOptions"
+            :key="opt.value"
+            :icon="opt.icon"
+            :color="viewMode === opt.value ? 'primary' : 'neutral'"
+            :variant="viewMode === opt.value ? 'solid' : 'subtle'"
+            :aria-label="opt.label"
+            :title="opt.label"
+            @click="viewMode = opt.value"
+          />
+        </UButtonGroup>
+        <USelect
+          :model-value="selectedMonth"
+          :items="monthOptions"
+          size="sm"
+          color="neutral"
+          variant="subtle"
+          @update:model-value="onMonthChange($event as string)"
+        />
+      </div>
     </div>
 
     <template v-if="hasTransactions">
+      <!-- Chart view: bar chart + category-grouped editable ledger -->
+      <template v-if="viewMode === 'chart'">
       <!-- Chart -->
       <div v-if="chartData" class="mt-4 h-72 sm:h-80">
         <Bar ref="chartRef" :data="chartData" :options="chartOptions" />
@@ -414,61 +394,38 @@ const submitEdit = (id: number) => {
                   class="space-y-2 border-t border-slate-200/70 px-3 py-2 dark:border-slate-700/60"
                 >
                   <div v-for="tx in item.transactions" :key="tx.id">
-                    <!-- Inline edit -->
-                    <template v-if="editingId === tx.id">
-                      <div class="grid gap-2 sm:grid-cols-2">
-                        <UFormField :label="$t('form.date')" size="sm">
-                          <UPopover v-model:open="editDateOpen" :content="{ side: 'bottom', sideOffset: 8 }">
-                            <template #anchor>
-                              <UInputDate v-model="editDateValue" locale="cs" size="sm" class="w-full">
-                                <template #trailing>
-                                  <UButton icon="i-heroicons-calendar-days" color="neutral" variant="ghost" size="xs" @click="editDateOpen = !editDateOpen" />
-                                </template>
-                              </UInputDate>
-                            </template>
-                            <template #content>
-                              <UCalendar v-model="editDateValue" locale="cs" />
-                            </template>
-                          </UPopover>
-                        </UFormField>
-                        <UFormField :label="$t('form.name')" size="sm">
-                          <UInput v-model="editItem.name" size="sm" class="w-full" />
-                        </UFormField>
-                        <UFormField :label="$t('form.amount')" size="sm">
-                          <UInputNumber v-model="editItem.amount" size="sm" class="w-full" :step="0.01" :format-options="{ minimumFractionDigits: 2, maximumFractionDigits: 2 }" />
-                        </UFormField>
-                        <UFormField :label="$t('form.currency')" size="sm">
-                          <UInput v-model="editItem.currency" size="sm" class="w-full" />
-                        </UFormField>
-                        <UFormField :label="$t('form.type')" size="sm">
-                          <USelect v-model="editItem.type" :items="typeOptions" :leading-icon="typeOptions.find(o => o.value === editItem.type)?.icon" size="sm" class="w-full" />
-                        </UFormField>
-                        <UFormField :label="$t('form.category')" size="sm">
-                          <USelect v-model="editItem.category" :items="editCategoryOptions" :leading-icon="editCategoryOptions.find(o => o.value === editItem.category)?.icon" size="sm" class="w-full" />
-                        </UFormField>
-                      </div>
-                      <div class="mt-2 flex gap-2">
-                        <UButton color="primary" variant="solid" size="xs" @click="submitEdit(tx.id)">
-                          {{ $t('transactions.saveChanges') }}
-                        </UButton>
-                        <UButton variant="outline" color="neutral" size="xs" @click="cancelEdit">
-                          {{ $t('common.cancel') }}
-                        </UButton>
-                      </div>
-                    </template>
-                    <!-- Display -->
-                    <div v-else class="flex items-center gap-2 text-xs text-muted">
-                      <span class="shrink-0 text-dimmed">{{ formatDate(tx.date) }}</span>
-                      <span class="min-w-0 flex-1 truncate text-toned">{{ tx.name }}</span>
-                      <span class="shrink-0 font-medium text-toned">{{ fmt(Math.abs(tx.amount)) }}</span>
-                      <UButton icon="i-heroicons-pencil-square" color="neutral" variant="ghost" size="xs" :aria-label="$t('common.edit')" @click="startEdit(tx)" />
-                      <UButton icon="i-heroicons-trash" color="error" variant="ghost" size="xs" :aria-label="$t('common.delete')" @click="emit('delete', tx.id)" />
-                    </div>
+                    <OverviewTransactionRow
+                      :transaction="tx"
+                      :type-options="typeOptions"
+                      :get-category-options="getCategoryOptions"
+                      @update="emit('update', $event)"
+                      @delete="emit('delete', $event)"
+                    />
                   </div>
                 </div>
               </Transition>
             </div>
           </div>
+        </div>
+      </div>
+      </template>
+
+      <!-- List view: flat, chronological, editable transaction list -->
+      <div v-else class="mt-4 space-y-1.5">
+        <div
+          v-for="tx in flatTransactions"
+          :key="tx.id"
+          class="rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 dark:border-slate-700/60 dark:bg-slate-900/50"
+        >
+          <OverviewTransactionRow
+            :transaction="tx"
+            :type-options="typeOptions"
+            :get-category-options="getCategoryOptions"
+            :category-label="tx.category.label || $t('categories.other')"
+            :category-color="catColorById.get(tx.category.id)"
+            @update="emit('update', $event)"
+            @delete="emit('delete', $event)"
+          />
         </div>
       </div>
     </template>
