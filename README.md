@@ -1,5 +1,10 @@
 # Money Manager
 
+<p align="center">
+  <img src="preview/demo.gif" alt="Money Manager demo" width="760"><br>
+  <sub>▶ <a href="preview/demo.mp4">full-resolution MP4</a></sub>
+</p>
+
 A self-hosted personal-finance tracker. Each user has their own ledger
 of incomes and expenses, grouped by per-user **categories** (income
 categories + expense "sales-split" rules with a target allocation
