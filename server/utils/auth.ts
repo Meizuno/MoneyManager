@@ -89,6 +89,41 @@ function readAccessToken(event: H3Event): string {
   return readCookie(event, ACCESS_COOKIE) ?? ''
 }
 
+// Single-flight refresh. Refresh tokens are single-use — the auth service
+// rotates them and treats a 2nd use of the same token as reuse, revoking the
+// whole family (a surprise logout + 401). Parallel requests that all hit an
+// expired access token must therefore share ONE /refresh call, keyed by the
+// refresh token, rather than each POSTing it. (forwardRefreshedCookies only
+// dedups a single render's inner SSR fetches; this covers separate concurrent
+// requests on the same instance.) Map<old refresh token, in-flight>.
+type RefreshResult = { access: string, refresh: string } | null
+const inflightRefresh = new Map<string, Promise<RefreshResult>>()
+
+async function refreshPair(authServiceUrl: string, refreshToken: string): Promise<RefreshResult> {
+  try {
+    const res = await $fetch.raw<{ access_token: string }>(
+      `${authServiceUrl}/refresh`,
+      { method: 'POST', body: { refresh_token: refreshToken } }
+    )
+    const access = res._data?.access_token ?? ''
+    const refresh = rotatedRefresh(res.headers)
+    return access && refresh ? { access, refresh } : null
+  }
+  catch {
+    return null
+  }
+}
+
+function coalescedRefresh(authServiceUrl: string, refreshToken: string): Promise<RefreshResult> {
+  let inflight = inflightRefresh.get(refreshToken)
+  if (!inflight) {
+    inflight = refreshPair(authServiceUrl, refreshToken)
+    inflightRefresh.set(refreshToken, inflight)
+    void inflight.finally(() => inflightRefresh.delete(refreshToken))
+  }
+  return inflight
+}
+
 /**
  * Attempt to authenticate the current request. Sets event.context.user
  * (+ accessToken) on success and returns the user, or null when no
@@ -114,36 +149,26 @@ export async function authenticate(event: H3Event): Promise<AuthUser | null> {
   }
 
   // Access token absent or expired — fall back to the refresh token.
+  // Coalesced so concurrent requests don't each POST /refresh with the same
+  // single-use token (see coalescedRefresh) and trigger family revocation.
   const refreshToken = readCookie(event, REFRESH_COOKIE)
   if (!refreshToken) return null
 
-  try {
-    const config = useRuntimeConfig()
-    const res = await $fetch.raw<{ access_token: string }>(
-      `${config.authServiceUrl}/refresh`,
-      { method: 'POST', body: { refresh_token: refreshToken } }
-    )
-    const newAccess = res._data?.access_token ?? ''
-    // The rotated refresh token rides only in the auth service's Set-Cookie,
-    // never the response body — read it from there to re-issue it.
-    const newRefresh = rotatedRefresh(res.headers)
-    if (!newAccess || !newRefresh) return null
+  const config = useRuntimeConfig()
+  const pair = await coalescedRefresh(config.authServiceUrl, refreshToken)
+  // Refresh failed (rotated-away / revoked / auth-service blip). Stay
+  // anonymous and let requireAuthUser throw the actual 401 at the gate.
+  if (!pair) return null
 
-    setAuthCookies(event, newAccess, newRefresh)
-    // Rewrite this request's cookie header so SSR inner fetches forward
-    // the fresh pair rather than the stale (rotated-away) one.
-    forwardRefreshedCookies(event, newAccess, newRefresh)
-    const refreshed = await verifyAccessToken(newAccess)
-    if (!refreshed) return null
-    event.context.user = refreshed
-    event.context.accessToken = newAccess
-    return refreshed
-  }
-  catch {
-    // Refresh failed (rotated-away / revoked / auth-service blip). Stay
-    // anonymous and let requireAuthUser throw the actual 401 at the gate.
-    return null
-  }
+  setAuthCookies(event, pair.access, pair.refresh)
+  // Rewrite this request's cookie header so SSR inner fetches forward
+  // the fresh pair rather than the stale (rotated-away) one.
+  forwardRefreshedCookies(event, pair.access, pair.refresh)
+  const refreshed = await verifyAccessToken(pair.access)
+  if (!refreshed) return null
+  event.context.user = refreshed
+  event.context.accessToken = pair.access
+  return refreshed
 }
 
 /** Same shape, but throws Unauthorized when there is no valid session. */
