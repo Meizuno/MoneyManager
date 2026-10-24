@@ -65,6 +65,9 @@
     "emptyTitle": "Nothing here yet",
     "emptyDesc": "Transactions you add for this period show up here."
   },
+  "list": {
+    "showMore": "Show {count} more"
+  },
   "filters": {
     "search": "Search by name or category",
     "clearSearch": "Clear search",

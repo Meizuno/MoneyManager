@@ -5,20 +5,32 @@ import type { Transaction } from "#shared/schemas/transaction";
 // opens the edit window. Amounts are shown without the currency unless a
 // row isn't in CZK — on a list of CZK it would only be noise. `plain`
 // drops the boxes around each day, for a list that already sits in a card.
+// `pageSize` shows that many rows and a button for more: all time is a
+// thousand rows, too many to render (on the server too) just to scroll
+// past.
 const props = withDefaults(defineProps<{
   transactions: Transaction[];
   dayTotals?: boolean;
   plain?: boolean;
-}>(), { dayTotals: true, plain: false });
+  pageSize?: number;
+}>(), { dayTotals: true, plain: false, pageSize: Number.POSITIVE_INFINITY });
 
 const { colorOf } = useCategories();
 const { openEdit } = useTransactionEditor();
 const today = localDay();
 
+const sorted = computed(() => [...props.transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id));
+
+// Another search or filter starts from the first page again.
+const shown = ref(props.pageSize);
+watch(() => props.transactions, () => {
+  shown.value = props.pageSize;
+});
+const hidden = computed(() => Math.max(0, sorted.value.length - shown.value));
+
 const days = computed(() => {
   const groups: { day: string; items: Transaction[]; net: number }[] = [];
-  const sorted = [...props.transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
-  for (const tx of sorted) {
+  for (const tx of sorted.value.slice(0, shown.value)) {
     let group = groups.at(-1);
     if (!group || group.day !== tx.date) {
       group = { day: tx.date, items: [], net: 0 };
@@ -70,5 +82,15 @@ const foreign = (tx: Transaction) => tx.currency && tx.currency.toUpperCase() !=
         </li>
       </ul>
     </section>
+    <UButton
+      v-if="hidden"
+      color="neutral"
+      variant="outline"
+      block
+      class="mt-1"
+      @click="shown += pageSize"
+    >
+      {{ $t('list.showMore', { count: Math.min(hidden, pageSize) }) }}
+    </UButton>
   </div>
 </template>

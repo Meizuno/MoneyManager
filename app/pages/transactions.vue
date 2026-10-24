@@ -136,7 +136,12 @@ useHead({ title: t("transactions.pageTitle") });
       </UButton>
     </div>
 
-    <TransactionList v-if="filtered.length" :transactions="filtered" :class="{ 'opacity-60 transition-opacity': status === 'pending' }" />
+    <TransactionList
+      v-if="filtered.length"
+      :transactions="filtered"
+      :page-size="100"
+      :class="{ 'opacity-60 transition-opacity': status === 'pending' }"
+    />
     <section v-else class="panel p-6">
       <UEmpty
         :icon="filtering ? 'i-heroicons-magnifying-glass' : 'i-heroicons-banknotes'"

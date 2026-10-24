@@ -44,6 +44,9 @@ export function stepPeriod(period: Period, n: number): Period {
   return period;
 }
 
+const monthYear = new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: "UTC" });
+const monthShort = new Intl.DateTimeFormat("en", { month: "short", timeZone: "UTC" });
+
 const monthDate = (month: string) => {
   const [y, m] = month.split("-").map(Number) as [number, number];
   return new Date(Date.UTC(y, m - 1, 1));
@@ -52,7 +55,7 @@ const monthDate = (month: string) => {
 /** "October 2026", "2026", "All time". */
 export function periodLabel(period: Period): string {
   if (isMonth(period)) {
-    return monthDate(period).toLocaleString("en", { month: "long", year: "numeric", timeZone: "UTC" });
+    return monthYear.format(monthDate(period));
   }
   if (isYear(period)) return period;
   return "All time";
@@ -60,7 +63,7 @@ export function periodLabel(period: Period): string {
 
 /** "Oct" — for chart axes. */
 export function shortMonthLabel(month: string): string {
-  return monthDate(month).toLocaleString("en", { month: "short", timeZone: "UTC" });
+  return monthShort.format(monthDate(month));
 }
 
 /**
