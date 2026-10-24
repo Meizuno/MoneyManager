@@ -1,236 +1,249 @@
 <script setup lang="ts">
 import { parseDate } from "@internationalized/date";
-// `SelectItem` is kept (rather than re-typing) only for the cast that
-// hands `currentCategoryOptions` to `<USelect :items>` further below —
-// USelect's items prop is typed against the union and CategoryItem
-// satisfies its object branch.
-import type { SelectItem } from "@nuxt/ui";
-// Pre-validation shape — the form holds string-y amounts / category
-// ids until the server's zod schema coerces them. `CreateTransactionPayload`
-// is `z.input<typeof createTransactionSchema>`; the matching post-validation
-// `CreateTransactionInput` lives on the server side.
-import type { CreateTransactionPayload } from "#shared/schemas/transaction";
+import type { Transaction, TransactionType } from "#shared/schemas/transaction";
 
-interface CategoryItem {
-  label: string;
-  value: string;
-  icon?: string;
-  chip?: { color: string };
-}
-
-// Narrower than @nuxt/ui's exported `SelectItem` (which is a union
-// allowing raw primitives). Our typeOptions are always object-shaped
-// with `label` + `value` + optional `icon`, so use this instead and
-// avoid the per-access `.value` narrowing dance.
-interface TypeOption {
-  label: string;
-  value: string;
-  icon?: string;
-}
-
+// The add/edit form inside TransactionEditor. The amount comes first and
+// large, the category is one tap on a chip, the date defaults to today.
+// An empty name takes the category's — the API requires one, and "Groceries
+// 450" is most of what a quick entry needs.
 const props = defineProps<{
-  typeOptions: TypeOption[];
-  getCategoryOptions: (type: string) => CategoryItem[];
-  manageCategoriesValue: string;
+  transaction: Transaction | null;
+  type: TransactionType;
 }>();
+const emit = defineEmits<{ done: [] }>();
 
-const router = useRouter();
+const { categoriesFor, ensureLoaded } = useCategories();
+const { createTransaction, updateTransaction, deleteTransaction } = useTransactions();
 
-const emit = defineEmits<{
-  (event: "submit", payload: CreateTransactionPayload): void;
-}>();
+const editing = props.transaction !== null;
+const today = localDay();
+const yesterday = previousDay(today);
 
-const getToday = () => new Date().toISOString().slice(0, 10);
-
-const firstCategory = (type: string) =>
-  props.getCategoryOptions(type).find(o => o.value !== props.manageCategoriesValue)?.value ?? "";
-
-const form = ref({
-  date: getToday(),
-  name: "",
-  amount: null as number | null,
-  currency: "CZK",
-  type: "expense",
-  category: "",
+const form = reactive({
+  type: props.transaction?.type ?? props.type,
+  amount: props.transaction ? props.transaction.amount.toFixed(2) : "",
+  currency: props.transaction?.currency ?? "CZK",
+  name: props.transaction?.name ?? "",
+  category: props.transaction?.category.id ?? null as number | null,
+  date: props.transaction?.date ?? today,
 });
 
-onMounted(() => {
-  form.value.category = firstCategory(form.value.type);
+const categories = computed(() => categoriesFor(form.type));
+const chosen = computed(() => categories.value.find(c => c.id === form.category));
+watch(() => form.type, () => {
+  if (!chosen.value) form.category = null;
 });
 
-const formDateOpen = ref(false);
-const isValid = computed(
-  () =>
-    Boolean(form.value.date)
-    && Boolean(form.value.name)
-    && form.value.amount !== null
-    // Create requires a real category; disable submit when none is picked
-    // (e.g. the user has no categories of this type yet).
-    && Boolean(form.value.category),
-);
+const amount = computed(() => parseAmount(form.amount));
+const valid = computed(() => amount.value !== null && amount.value > 0 && chosen.value !== undefined && Boolean(form.date));
 
-const safeParseDate = (value: string) => {
-  try {
-    return value ? parseDate(value) : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-const formDateValue = computed({
-  get: () => safeParseDate(form.value.date),
+const calendarOpen = ref(false);
+const calendarDate = computed({
+  get: () => {
+    try {
+      return parseDate(form.date);
+    }
+    catch {
+      return undefined;
+    }
+  },
   set: (value) => {
-    form.value.date = value ? value.toString() : "";
+    if (!value) return;
+    form.date = value.toString();
+    calendarOpen.value = false;
   },
 });
+const otherDay = computed(() => form.date !== today && form.date !== yesterday);
 
-const currentCategoryOptions = computed<CategoryItem[]>(() => props.getCategoryOptions(form.value.type));
-const currentCategoryOptionsForSelect = computed(() => currentCategoryOptions.value as SelectItem[]);
+// A new entry starts at the amount; an edit leaves the keyboard closed.
+// Deferred: the dialog places its own focus once it has opened, and would
+// otherwise take it straight back.
+const amountField = ref<HTMLInputElement | null>(null);
+onMounted(() => {
+  void ensureLoaded();
+  if (!editing) setTimeout(() => amountField.value?.focus(), 50);
+});
 
-function getChip(value: string) {
-  return currentCategoryOptions.value.find(o => o.value === value)?.chip;
+const saving = ref(false);
+async function save() {
+  if (!valid.value || saving.value) return;
+  saving.value = true;
+  const input = {
+    date: form.date,
+    name: form.name.trim() || chosen.value!.label,
+    amount: amount.value!,
+    currency: form.currency.trim().toUpperCase() || "CZK",
+    type: form.type,
+    category: chosen.value!.id,
+  };
+  const ok = props.transaction
+    ? await updateTransaction(props.transaction.id, input)
+    : await createTransaction(input);
+  saving.value = false;
+  if (ok) emit("done");
 }
 
-watch(() => form.value.type, (type) => {
-  form.value.category = firstCategory(type);
-});
-
-watch(currentCategoryOptions, (options) => {
-  const real = options.filter(o => o.value !== props.manageCategoriesValue);
-  const stillValid = real.some(o => o.value === form.value.category);
-  if (!stillValid) {
-    form.value.category = real[0]?.value ?? "";
+// Deleting takes two clicks: the first arms the button for a few seconds.
+const armed = ref(false);
+let disarm: ReturnType<typeof setTimeout> | undefined;
+async function remove() {
+  if (!props.transaction) return;
+  if (!armed.value) {
+    armed.value = true;
+    disarm = setTimeout(() => (armed.value = false), 3000);
+    return;
   }
-});
+  clearTimeout(disarm);
+  saving.value = true;
+  const ok = await deleteTransaction(props.transaction.id);
+  saving.value = false;
+  if (ok) emit("done");
+}
+onBeforeUnmount(() => clearTimeout(disarm));
 
-watch(() => form.value.category, (val) => {
-  if (val === props.manageCategoriesValue) {
-    form.value.category = currentCategoryOptions.value.find(o => o.value !== props.manageCategoriesValue)?.value ?? "";
-    router.push(form.value.type === "income" ? "/categories#income" : "/categories#expense");
-  }
-});
-
-const clearForm = () => {
-  const type = props.typeOptions[0]?.value ?? "expense";
-  form.value = {
-    date: getToday(),
-    name: "",
-    amount: null,
-    currency: "CZK",
-    type,
-    category: firstCategory(type),
-  };
-};
-
-const submitForm = () => {
-  if (!isValid.value) return;
-  // The `as` on `type` is safe because the select is bound to a
-  // closed two-option list (`income` | `expense`); the form ref is
-  // typed `string` only because Vue's ref inference widens.
-  emit("submit", {
-    date: form.value.date,
-    name: form.value.name,
-    amount: form.value.amount ?? "",
-    currency: form.value.currency,
-    type: form.value.type as "income" | "expense",
-    // Category is required on create — always send the selected id (the
-    // submit button is disabled when none is available, see isValid).
-    category: form.value.category,
-  });
-  clearForm();
-};
+const TYPES = [
+  { value: "expense", icon: "i-heroicons-arrow-trending-down" },
+  { value: "income", icon: "i-heroicons-arrow-trending-up" },
+] as const;
 </script>
 
 <template>
-  <UCard class="glass-card">
-    <div class="grid gap-3">
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <UFormField :label="$t('form.date')" :help="$t('form.dateHelp')">
-          <UPopover v-model:open="formDateOpen" :content="{ side: 'bottom', sideOffset: 8 }">
-            <template #anchor>
-              <UInputDate v-model="formDateValue" locale="cs" class="w-full">
-                <template #trailing>
-                  <UButton
-                    icon="i-heroicons-calendar-days"
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    @click="formDateOpen = !formDateOpen"
-                  />
-                </template>
-              </UInputDate>
-            </template>
-            <template #content>
-              <UCalendar v-model="formDateValue" locale="cs" @update:model-value="formDateOpen = false" />
-            </template>
-          </UPopover>
-        </UFormField>
-        <UFormField :label="$t('form.type')" :help="$t('form.typeHelp')">
-          <USelect
-            v-model="form.type"
-            :items="typeOptions"
-            :leading-icon="typeOptions.find(o => o.value === form.type)?.icon"
-            class="w-full"
-          />
-        </UFormField>
-        <UFormField :label="$t('form.currency')" :help="$t('form.currencyHelp')">
-          <UInput v-model="form.currency" :placeholder="$t('form.currencyPlaceholder')" class="w-full" />
-        </UFormField>
-        <UFormField :label="$t('form.name')" :help="$t('form.nameHelp')">
-          <UInput v-model="form.name" :placeholder="$t('form.namePlaceholder')" class="w-full" />
-        </UFormField>
-        <UFormField :label="$t('form.amount')" :help="$t('form.amountHelp')">
-          <UInputNumber
-            v-model="form.amount"
-            :step="0.01"
-            :min="0"
-            :format-options="{ minimumFractionDigits: 2, maximumFractionDigits: 2 }"
-            placeholder="12.50"
-            class="w-full"
-          />
-        </UFormField>
-        <UFormField :label="$t('form.category')" :help="$t('form.categoryHelp')">
-          <USelect
-            v-model="form.category"
-            :items="currentCategoryOptionsForSelect"
-            :placeholder="$t('form.categoryPlaceholder')"
-            class="w-full"
-          >
-            <template #leading="{ modelValue }">
-              <span
-                v-if="modelValue && getChip(modelValue as string)"
-                class="ms-2.5 inline-block h-2 w-2 shrink-0 rounded-full"
-                :style="{ backgroundColor: `var(--color-${getChip(modelValue as string)!.color}-400)` }"
-              />
-            </template>
-            <template #item-leading="{ item }">
-              <span
-                v-if="(item as CategoryItem).chip"
-                class="flex size-4 items-center justify-center"
-              >
-                <span
-                  class="h-2 w-2 rounded-full"
-                  :style="{ backgroundColor: `var(--color-${(item as CategoryItem).chip!.color}-400)` }"
-                />
-              </span>
-              <UIcon
-                v-else-if="(item as CategoryItem).icon"
-                :name="(item as CategoryItem).icon!"
-                class="size-4 shrink-0"
-              />
-            </template>
-          </USelect>
-        </UFormField>
+  <form class="flex flex-col gap-5" @submit.prevent="save">
+    <!-- Expense / income -->
+    <div class="grid grid-cols-2 gap-1 rounded-xl bg-elevated p-1" role="radiogroup" :aria-label="$t('form.type')">
+      <button
+        v-for="option in TYPES"
+        :key="option.value"
+        type="button"
+        role="radio"
+        :aria-checked="form.type === option.value"
+        class="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition"
+        :class="form.type === option.value
+          ? 'bg-default text-highlighted shadow-sm'
+          : 'text-muted hover:text-highlighted'"
+        @click="form.type = option.value"
+      >
+        <UIcon
+          :name="option.icon"
+          class="size-4"
+          :class="form.type === option.value ? (option.value === 'income' ? 'text-emerald-500' : 'text-rose-500') : ''"
+        />
+        {{ $t(`types.${option.value}`) }}
+      </button>
+    </div>
+
+    <!-- Amount, with the currency beside it -->
+    <label class="flex items-center gap-3 rounded-2xl border border-default bg-default px-4 py-3 transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+      <input
+        ref="amountField"
+        v-model="form.amount"
+        inputmode="decimal"
+        autocomplete="off"
+        placeholder="0.00"
+        :aria-label="$t('form.amount')"
+        class="min-w-0 flex-1 bg-transparent font-display text-3xl font-semibold tabular-nums text-highlighted outline-none placeholder:text-dimmed"
+      >
+      <input
+        v-model="form.currency"
+        maxlength="3"
+        autocomplete="off"
+        :aria-label="$t('form.currency')"
+        class="w-12 bg-transparent text-right text-sm font-semibold uppercase text-muted outline-none"
+      >
+    </label>
+
+    <!-- Category -->
+    <div>
+      <div class="mb-2 flex items-center justify-between">
+        <span class="text-sm font-medium text-default">{{ $t('form.category') }}</span>
+        <NuxtLink to="/categories" class="text-xs font-medium text-primary hover:underline" @click="emit('done')">
+          {{ $t('form.manageCategories') }}
+        </NuxtLink>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <UButton color="primary" variant="solid" :disabled="!isValid" @click="submitForm">
-          {{ $t('form.addButton') }}
+      <div v-if="categories.length" class="flex flex-wrap gap-2">
+        <button
+          v-for="category in categories"
+          :key="category.id"
+          type="button"
+          :aria-pressed="form.category === category.id"
+          class="inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition"
+          :class="form.category === category.id ? 'font-medium text-highlighted' : 'border-default text-default hover:bg-elevated'"
+          :style="form.category === category.id
+            ? { backgroundColor: `${categoryHex(category.color)}26`, borderColor: categoryHex(category.color) }
+            : {}"
+          @click="form.category = category.id"
+        >
+          <span class="size-2 rounded-full" :style="{ backgroundColor: categoryHex(category.color) }" />
+          {{ category.label }}
+        </button>
+      </div>
+      <p v-else class="text-sm text-muted">
+        {{ $t(form.type === 'income' ? 'form.noIncomeCategories' : 'form.noExpenseCategories') }}
+      </p>
+    </div>
+
+    <!-- Name -->
+    <UFormField :label="$t('form.name')" :hint="$t('form.optional')">
+      <UInput
+        v-model="form.name"
+        :placeholder="chosen?.label ?? $t('form.namePlaceholder')"
+        size="lg"
+        class="w-full"
+      />
+    </UFormField>
+
+    <!-- Date -->
+    <div>
+      <span class="mb-2 block text-sm font-medium text-default">{{ $t('form.date') }}</span>
+      <div class="flex flex-wrap gap-2">
+        <UButton
+          size="sm"
+          :color="form.date === today ? 'primary' : 'neutral'"
+          :variant="form.date === today ? 'soft' : 'outline'"
+          @click="form.date = today"
+        >
+          {{ $t('form.today') }}
         </UButton>
-        <UButton color="neutral" variant="outline" @click="clearForm">
-          {{ $t('common.clear') }}
+        <UButton
+          size="sm"
+          :color="form.date === yesterday ? 'primary' : 'neutral'"
+          :variant="form.date === yesterday ? 'soft' : 'outline'"
+          @click="form.date = yesterday"
+        >
+          {{ $t('form.yesterday') }}
         </UButton>
-        <p class="text-xs text-dimmed">{{ $t('common.required') }}</p>
+        <UPopover v-model:open="calendarOpen">
+          <UButton
+            size="sm"
+            icon="i-heroicons-calendar-days"
+            :color="otherDay ? 'primary' : 'neutral'"
+            :variant="otherDay ? 'soft' : 'outline'"
+          >
+            {{ otherDay ? shortDay(form.date) : $t('form.otherDay') }}
+          </UButton>
+          <template #content>
+            <UCalendar v-model="calendarDate" locale="en-GB" class="p-2" />
+          </template>
+        </UPopover>
       </div>
     </div>
-  </UCard>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-2 pt-1">
+      <UButton
+        v-if="editing"
+        color="error"
+        :variant="armed ? 'soft' : 'ghost'"
+        size="lg"
+        :icon="armed ? 'i-heroicons-exclamation-triangle' : 'i-heroicons-trash'"
+        :disabled="saving"
+        @click="remove"
+      >
+        {{ armed ? $t('form.confirmDelete') : $t('common.delete') }}
+      </UButton>
+      <UButton type="submit" size="lg" block class="flex-1" :disabled="!valid" :loading="saving">
+        {{ editing ? $t('form.saveChanges') : $t(form.type === 'income' ? 'form.addIncome' : 'form.addExpense') }}
+      </UButton>
+    </div>
+  </form>
 </template>

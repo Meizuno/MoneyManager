@@ -75,7 +75,7 @@ export const useCategories = () => {
     try {
       const rule = await apiFetch<SplitRule>("/api/sales-split", {
         method: "POST",
-        body: { label: t("salesSplit.newRule"), percent: 10 },
+        body: { label: t("plan.newExpenseCategory"), percent: 10 },
       });
       splitRules.value = [...splitRules.value, rule];
     } finally { savingRule.value = false; }
@@ -110,7 +110,7 @@ export const useCategories = () => {
     try {
       const cat = await apiFetch<IncomeCategory>("/api/income-categories", {
         method: "POST",
-        body: { label: t("incomeCategories.newCategory") },
+        body: { label: t("plan.newIncomeCategory") },
       });
       incomeCategories.value = [...incomeCategories.value, cat];
     } finally { savingCategory.value = false; }
@@ -135,9 +135,20 @@ export const useCategories = () => {
     if (rows) incomeCategories.value = rows;
   };
 
+  // The categories a transaction of `type` can take, in the user's order.
+  const categoriesFor = (type: "income" | "expense") =>
+    type === "expense" ? splitRules.value : incomeCategories.value;
+
+  // A category's colour. Keyed by type as well as id: the two lists are
+  // separate tables, so an income and an expense category can share an id.
+  const colorOf = (type: "income" | "expense", id: number) =>
+    categoryHex(categoriesFor(type).find((c) => c.id === id)?.color);
+
   return {
     splitRules,
     incomeCategories,
+    categoriesFor,
+    colorOf,
     savingRule,
     savingCategory,
     ensureSplitRules,

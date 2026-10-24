@@ -10,6 +10,9 @@ export default defineNuxtConfig({
         { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       ],
       meta: [
+        // viewport-fit=cover lets the bottom tab bar pad itself clear of
+        // the iPhone home indicator (env(safe-area-inset-bottom)).
+        { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
         { name: "apple-mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
         { name: "apple-mobile-web-app-title", content: "Money Manager" },
