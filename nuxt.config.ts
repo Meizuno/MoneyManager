@@ -49,6 +49,9 @@ export default defineNuxtConfig({
     // memory) on a port of their own, apart from the app's so nothing routes
     // to it: NUXT_METRICS_PORT, e.g. 9000. 0 → off.
     metricsPort: 0,
+    // Pyroscope server the app pushes CPU and memory profiles to:
+    // NUXT_PYROSCOPE_SERVER_ADDRESS, e.g. http://pyroscope:4040. Empty → off.
+    pyroscopeServerAddress: "",
   },
 
   // Auto-import server-side use-case functions from server/services

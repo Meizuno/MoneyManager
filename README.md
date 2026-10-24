@@ -48,6 +48,7 @@ env is validated at startup — the server **exits** if it's missing or invalid
 | `NUXT_AUTH_SERVICE_URL` | ✅ | Base URL of the external auth service |
 | `NUXT_MCP_API_KEY` | – | Shared key for the MCP / prompt endpoints; empty disables key auth |
 | `NUXT_METRICS_PORT` | – | Port for Prometheus metrics (request durations by route, process CPU and memory), apart from the app's so nothing public routes to it; unset = off |
+| `NUXT_PYROSCOPE_SERVER_ADDRESS` | – | Pyroscope server to push CPU and memory profiles to, e.g. `http://pyroscope:4040`; unset = off |
 
 ## Setup
 
@@ -138,5 +139,8 @@ In production the app reports to the stack's monitoring
   built client's files) and status class, timed to the last byte; plus the
   process's CPU, memory, heap, GC and event-loop lag. `/api/health` and
   server-side rendering's own `$fetch` calls are not counted.
+- **Profiles** — `server/plugins/profiling.ts` pushes CPU and memory-in-use
+  profiles to Pyroscope at `NUXT_PYROSCOPE_SERVER_ADDRESS`, as service
+  `money-manager`.
 
-It is off unless `NUXT_METRICS_PORT` is set, so dev and tests run without it.
+Both are off unless their variable is set, so dev and tests run without them.
