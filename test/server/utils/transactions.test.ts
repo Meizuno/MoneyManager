@@ -4,6 +4,7 @@ import {
   createTransactionScoped,
   listTransactionsScoped,
   monthlyTotalsScoped,
+  summarizeItems,
   summarizeTransactionsScoped,
   updateTransactionScoped
 } from '../../../server/utils/transactions'
@@ -56,16 +57,14 @@ function makeDb() {
       update,
       delete: vi.fn(async () => makeRow()),
       findFirst: vi.fn(async () => null),
-      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 })),
-      groupBy: vi.fn(async (): Promise<{ date: Date, _sum: { amount: number | null } }[]> => [])
+      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 }))
     },
     expense: {
       create,
       update,
       delete: vi.fn(async () => makeRow()),
       findFirst: vi.fn(async () => null),
-      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 })),
-      groupBy: vi.fn(async (): Promise<{ date: Date, _sum: { amount: number | null } }[]> => [])
+      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 }))
     },
     expenseCategory: {
       findFirst: vi.fn(async () => null),
@@ -236,33 +235,89 @@ describe('summarizeTransactionsScoped', () => {
   })
 })
 
-describe('monthlyTotalsScoped', () => {
-  const day = (date: string, amount: number | null) => ({ date: new Date(`${date}T00:00:00.000Z`), _sum: { amount } })
+describe('listTransactionsScoped — reads', () => {
+  it('takes labels handed in (even as a promise) instead of reading them again', async () => {
+    db.expense.findMany = vi.fn(async () => [makeRow({ id: 7, category: 3 })])
+    db.income.findMany = vi.fn(async () => [makeRow({ id: 8, category: 5 })])
+    const labels = Promise.resolve({ expense: new Map([[3, 'Food']]), income: new Map([[5, 'Salary']]) })
+    const items = await listTransactionsScoped('u1', {}, labels)
+    expect(items.map(i => i.category.label).sort()).toEqual(['Food', 'Salary'])
+    expect(db.expenseCategory.findMany).not.toHaveBeenCalled()
+    expect(db.incomeCategory.findMany).not.toHaveBeenCalled()
+  })
 
-  it('folds daily sums into zero-filled months, oldest first', async () => {
-    db.income.groupBy = vi.fn(async () => [day('2026-08-10', 68000), day('2026-10-10', 68000), day('2026-10-31', 312.5)])
-    db.expense.groupBy = vi.fn(async () => [day('2026-08-01', 16900), day('2026-08-20', 0.1), day('2026-08-21', 0.2)])
-    const months = await monthlyTotalsScoped('u1', '2026-08', '2026-10')
-    expect(months).toEqual([
+  it('reads one table and its labels when the filter picks a type', async () => {
+    db.expense.findMany = vi.fn(async () => [makeRow()])
+    db.income.findMany = vi.fn(async () => [])
+    await listTransactionsScoped('u1', { type: 'expense' })
+    expect(db.income.findMany).not.toHaveBeenCalled()
+    expect(db.incomeCategory.findMany).not.toHaveBeenCalled()
+    expect(db.expenseCategory.findMany).toHaveBeenCalledOnce()
+  })
+
+  it('does not read user_id back — it is the filter, not the answer', async () => {
+    db.expense.findMany = vi.fn(async () => [makeRow()])
+    await listTransactionsScoped('u1', { type: 'expense' })
+    const select = (db.expense.findMany.mock.calls[0] as unknown as [{ select: Record<string, boolean> }])[0].select
+    expect(select.user_id).toBeUndefined()
+    expect(select.amount).toBe(true)
+  })
+})
+
+describe('summarizeItems', () => {
+  it('adds up rows in hand the way the database aggregate does', () => {
+    const tx = (type: 'income' | 'expense', amount: number) => ({
+      id: 1, date: '2026-10-01', name: 'x', amount, currency: 'CZK', type, category: { id: 1, label: 'x' }, created_at: ''
+    })
+    expect(summarizeItems([tx('income', 1000), tx('expense', 0.1), tx('expense', 0.2), tx('income', 50.05)])).toEqual({
+      income: 1050.05, expenses: 0.3, net: 1049.75, incomeCount: 2, expenseCount: 2
+    })
+    expect(summarizeItems([])).toEqual({ income: 0, expenses: 0, net: 0, incomeCount: 0, expenseCount: 0 })
+  })
+})
+
+describe('monthlyTotalsScoped', () => {
+  type Sum = { kind: 'income' | 'expense', month: string, total: number | null }
+  const sums = (rows: Sum[]) => {
+    const raw = vi.fn(async (..._args: unknown[]) => rows)
+    ;(db as unknown as { $queryRaw: typeof raw }).$queryRaw = raw
+    return raw
+  }
+
+  it('lays the monthly sums onto zero-filled months, oldest first', async () => {
+    sums([
+      { kind: 'income', month: '2026-08', total: 68000 },
+      { kind: 'expense', month: '2026-08', total: 16900.3 },
+      { kind: 'income', month: '2026-10', total: 68312.5 }
+    ])
+    expect(await monthlyTotalsScoped('u1', '2026-08', '2026-10')).toEqual([
       { month: '2026-08', income: 68000, expenses: 16900.3 },
       { month: '2026-09', income: 0, expenses: 0 },
       { month: '2026-10', income: 68312.5, expenses: 0 }
     ])
   })
 
-  it('treats a null daily sum as zero', async () => {
-    db.expense.groupBy = vi.fn(async () => [day('2026-10-01', null)])
-    const months = await monthlyTotalsScoped('u1', '2026-10', '2026-10')
-    expect(months).toEqual([{ month: '2026-10', income: 0, expenses: 0 }])
+  it('reads a numeric total that arrives as a Decimal-like object, and a null as zero', async () => {
+    sums([
+      { kind: 'expense', month: '2026-10', total: { toString: () => '12.345', valueOf: () => 12.345 } as unknown as number },
+      { kind: 'income', month: '2026-10', total: null }
+    ])
+    expect(await monthlyTotalsScoped('u1', '2026-10', '2026-10')).toEqual([{ month: '2026-10', income: 0, expenses: 12.35 }])
   })
 
-  it('groups by day within the viewer and the whole months asked for', async () => {
+  it('ignores a month outside the range rather than adding one', async () => {
+    sums([{ kind: 'income', month: '2026-12', total: 5 }])
+    expect(await monthlyTotalsScoped('u1', '2026-10', '2026-10')).toEqual([{ month: '2026-10', income: 0, expenses: 0 }])
+  })
+
+  it('passes the viewer and the whole months as parameters, never inside the SQL text', async () => {
+    const raw = sums([])
     await monthlyTotalsScoped('u1', '2025-11', '2026-10')
-    const args = db.expense.groupBy.mock.calls[0]![0] as unknown as { by: string[], where: { user_id: string, date: { gte: Date, lte: Date } } }
-    expect(args.by).toEqual(['date'])
-    expect(args.where.user_id).toBe('u1')
-    expect(args.where.date.gte).toEqual(new Date('2025-11-01T00:00:00.000Z'))
-    expect(args.where.date.lte).toEqual(new Date('2026-10-31T23:59:59.999Z'))
+    const [strings, ...values] = raw.mock.calls[0]! as [TemplateStringsArray, ...unknown[]]
+    expect(strings.join('?')).not.toContain('u1')
+    expect(values).toContain('u1')
+    expect(values).toContainEqual(new Date('2025-11-01T00:00:00.000Z'))
+    expect(values).toContainEqual(new Date('2026-10-31T23:59:59.999Z'))
   })
 })
 

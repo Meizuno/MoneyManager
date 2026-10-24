@@ -9,7 +9,7 @@ import type {
   UpdateTransactionInput
 } from '#shared/schemas/transaction'
 import { DEFAULT_CURRENCY } from '#shared/schemas/transaction'
-import { firstDayOf, lastDayOf, monthOf, monthsBetween } from '#shared/utils/months'
+import { firstDayOf, lastDayOf, monthsBetween } from '#shared/utils/months'
 import { getPrisma } from './db'
 import { CategoryNotFound, CategoryRequired, TransactionNotFound } from './errors'
 import { expenseCategoryExists, expenseCategoryLabels } from './expense-categories'
@@ -118,45 +118,80 @@ function scopedWhere(viewerId: string, query: ListTransactionsQuery) {
   }
 }
 
+// Category id → label, per table: what the read projection resolves a
+// row's category against.
+export type CategoryLabels = { income: Map<number, string>, expense: Map<number, string> }
+
+const NO_LABELS = new Map<number, string>()
+
+// The columns a Transaction is built from. user_id is the filter, never
+// part of the answer, so it isn't read back.
+const COLUMNS = { id: true, date: true, name: true, amount: true, currency: true, category: true, created_at: true } as const
+
+async function labelsScoped(viewerId: string, income: boolean, expense: boolean): Promise<CategoryLabels> {
+  const [incomeLabels, expenseLabels] = await Promise.all([
+    income ? incomeCategoryLabels(viewerId) : NO_LABELS,
+    expense ? expenseCategoryLabels(viewerId) : NO_LABELS
+  ])
+  return { income: incomeLabels, expense: expenseLabels }
+}
+
 // List + filter, scoped to one user. Reads from both tables when no
 // type filter is set and merges by date desc (id desc tiebreaker).
+//
+// `labels` is for a caller that reads the category lists anyway (the
+// overview): it hands their labels in instead of having them read twice.
+// It may be a promise, so those reads still run alongside the rows.
 export async function listTransactionsScoped(
   viewerId: string,
-  query: ListTransactionsQuery
+  query: ListTransactionsQuery,
+  labels?: CategoryLabels | Promise<CategoryLabels>
 ): Promise<Transaction[]> {
   const db = getPrisma()
-  const { type } = query
   const where = scopedWhere(viewerId, query)
   const orderBy = [{ date: 'desc' as const }, { id: 'desc' as const }]
+  const wantIncome = query.type !== 'expense'
+  const wantExpense = query.type !== 'income'
 
-  if (type === 'income') {
-    const [rows, labels] = await Promise.all([
-      db.income.findMany({ where, orderBy }),
-      incomeCategoryLabels(viewerId)
-    ])
-    return rows.map(r => toTransaction(r, 'income', labels))
-  }
-  if (type === 'expense') {
-    const [rows, labels] = await Promise.all([
-      db.expense.findMany({ where, orderBy }),
-      expenseCategoryLabels(viewerId)
-    ])
-    return rows.map(r => toTransaction(r, 'expense', labels))
-  }
-
-  const [incomes, expenses, incomeLabels, expenseLabels] = await Promise.all([
-    db.income.findMany({ where, orderBy }),
-    db.expense.findMany({ where, orderBy }),
-    incomeCategoryLabels(viewerId),
-    expenseCategoryLabels(viewerId)
+  const [incomes, expenses, resolved] = await Promise.all([
+    wantIncome ? db.income.findMany({ where, orderBy, select: COLUMNS }) : [],
+    wantExpense ? db.expense.findMany({ where, orderBy, select: COLUMNS }) : [],
+    labels ?? labelsScoped(viewerId, wantIncome, wantExpense)
   ])
-  return [
-    ...incomes.map(r => toTransaction(r, 'income', incomeLabels)),
-    ...expenses.map(r => toTransaction(r, 'expense', expenseLabels))
-  ].sort((a, b) => {
+  const items = [
+    ...incomes.map(r => toTransaction(r, 'income', resolved.income)),
+    ...expenses.map(r => toTransaction(r, 'expense', resolved.expense))
+  ]
+  // One table comes back in order already; two have to be merged.
+  if (!wantIncome || !wantExpense) return items
+  return items.sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? 1 : -1
     return b.id - a.id
   })
+}
+
+// What summarizeTransactionsScoped computes in the database, from rows
+// already in hand — for a caller that has fetched them anyway.
+export function summarizeItems(items: Transaction[]): TransactionSummary {
+  let income = 0
+  let expenses = 0
+  let incomeCount = 0
+  for (const item of items) {
+    if (item.type === 'income') {
+      income += item.amount
+      incomeCount++
+    }
+    else expenses += item.amount
+  }
+  // Cents can drift when many amounts are added as floats.
+  const cents = (n: number) => Math.round(n * 100) / 100
+  return {
+    income: cents(income),
+    expenses: cents(expenses),
+    net: cents(income - expenses),
+    incomeCount,
+    expenseCount: items.length - incomeCount
+  }
 }
 
 // Aggregate the filtered transactions in the database rather than pulling
@@ -189,36 +224,34 @@ export async function summarizeTransactionsScoped(
 
 // Income and expense totals per calendar month from `fromMonth` to
 // `toMonth` (`YYYY-MM`, both included), zero-filled so a chart gets one
-// point per month. The database sums per day (groupBy date) and the days
-// are folded into months here — Prisma can't group by a truncated date
-// without raw SQL, and a year is at most a few hundred days per table.
+// point per month. Postgres sums by month in one query over both tables:
+// a dozen rows each, where Prisma's groupBy could only group by day and
+// hand back every day of the year (several times the CPU, measured).
+// Parameterised by the tagged template — no value is spliced into the SQL.
 export async function monthlyTotalsScoped(
   viewerId: string,
   fromMonth: string,
   toMonth: string
 ): Promise<MonthTotals[]> {
-  const db = getPrisma()
-  const where = scopedWhere(viewerId, { category: undefined, dateFrom: firstDayOf(fromMonth), dateTo: lastDayOf(toMonth) })
-  const [incomes, expenses] = await Promise.all([
-    db.income.groupBy({ by: ['date'], where, _sum: { amount: true } }),
-    db.expense.groupBy({ by: ['date'], where, _sum: { amount: true } })
-  ])
+  const from = new Date(`${firstDayOf(fromMonth)}T00:00:00.000Z`)
+  const to = new Date(`${lastDayOf(toMonth)}T23:59:59.999Z`)
+  const sums = await getPrisma().$queryRaw<{ kind: 'income' | 'expense', month: string, total: unknown }[]>`
+    SELECT 'income' AS kind, to_char(date, 'YYYY-MM') AS month, sum(amount) AS total
+      FROM incomes WHERE user_id = ${viewerId} AND date >= ${from} AND date <= ${to} GROUP BY 2
+    UNION ALL
+    SELECT 'expense', to_char(date, 'YYYY-MM'), sum(amount)
+      FROM expenses WHERE user_id = ${viewerId} AND date >= ${from} AND date <= ${to} GROUP BY 2`
 
   const months = new Map(monthsBetween(fromMonth, toMonth).map(month => [month, { month, income: 0, expenses: 0 }]))
-  for (const day of incomes) {
-    const entry = months.get(monthOf(day.date.toISOString()))
-    if (entry) entry.income += Number(day._sum.amount ?? 0)
+  for (const { kind, month, total } of sums) {
+    const entry = months.get(month)
+    if (!entry) continue
+    // numeric comes back as a Decimal; Number() reads it either way.
+    const amount = Math.round(Number(total ?? 0) * 100) / 100
+    if (kind === 'income') entry.income = amount
+    else entry.expenses = amount
   }
-  for (const day of expenses) {
-    const entry = months.get(monthOf(day.date.toISOString()))
-    if (entry) entry.expenses += Number(day._sum.amount ?? 0)
-  }
-  // Cents can drift when many Decimals are added as floats.
-  return [...months.values()].map(m => ({
-    month: m.month,
-    income: Math.round(m.income * 100) / 100,
-    expenses: Math.round(m.expenses * 100) / 100
-  }))
+  return [...months.values()]
 }
 
 // Resolve the id → label map for a single resolved type. Small helper so
