@@ -177,6 +177,14 @@ export type TransactionSummary = {
   expenseCount: number
 }
 
+// Income and expense totals for one calendar month (`YYYY-MM`), positive
+// sums like TransactionSummary's. The overview's trend is a run of these.
+export type MonthTotals = {
+  month: string
+  income: number
+  expenses: number
+}
+
 // The transaction's category on read: the stored id plus its label,
 // joined from the matching category table. id 0 is "uncategorised" and a
 // since-deleted id resolves to an empty label. Writes still take a bare

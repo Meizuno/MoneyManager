@@ -2,12 +2,14 @@ import type { Prisma } from '@prisma/client'
 import type {
   CreateTransactionInput,
   ListTransactionsQuery,
+  MonthTotals,
   Transaction,
   TransactionSummary,
   TransactionType,
   UpdateTransactionInput
 } from '#shared/schemas/transaction'
 import { DEFAULT_CURRENCY } from '#shared/schemas/transaction'
+import { firstDayOf, lastDayOf, monthOf, monthsBetween } from '#shared/utils/months'
 import { getPrisma } from './db'
 import { CategoryNotFound, CategoryRequired, TransactionNotFound } from './errors'
 import { expenseCategoryExists, expenseCategoryLabels } from './expense-categories'
@@ -183,6 +185,40 @@ export async function summarizeTransactionsScoped(
     incomeCount: incomeAgg?._count ?? 0,
     expenseCount: expenseAgg?._count ?? 0
   }
+}
+
+// Income and expense totals per calendar month from `fromMonth` to
+// `toMonth` (`YYYY-MM`, both included), zero-filled so a chart gets one
+// point per month. The database sums per day (groupBy date) and the days
+// are folded into months here — Prisma can't group by a truncated date
+// without raw SQL, and a year is at most a few hundred days per table.
+export async function monthlyTotalsScoped(
+  viewerId: string,
+  fromMonth: string,
+  toMonth: string
+): Promise<MonthTotals[]> {
+  const db = getPrisma()
+  const where = scopedWhere(viewerId, { category: undefined, dateFrom: firstDayOf(fromMonth), dateTo: lastDayOf(toMonth) })
+  const [incomes, expenses] = await Promise.all([
+    db.income.groupBy({ by: ['date'], where, _sum: { amount: true } }),
+    db.expense.groupBy({ by: ['date'], where, _sum: { amount: true } })
+  ])
+
+  const months = new Map(monthsBetween(fromMonth, toMonth).map(month => [month, { month, income: 0, expenses: 0 }]))
+  for (const day of incomes) {
+    const entry = months.get(monthOf(day.date.toISOString()))
+    if (entry) entry.income += Number(day._sum.amount ?? 0)
+  }
+  for (const day of expenses) {
+    const entry = months.get(monthOf(day.date.toISOString()))
+    if (entry) entry.expenses += Number(day._sum.amount ?? 0)
+  }
+  // Cents can drift when many Decimals are added as floats.
+  return [...months.values()].map(m => ({
+    month: m.month,
+    income: Math.round(m.income * 100) / 100,
+    expenses: Math.round(m.expenses * 100) / 100
+  }))
 }
 
 // Resolve the id → label map for a single resolved type. Small helper so

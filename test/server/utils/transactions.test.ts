@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client'
 import {
   createTransactionScoped,
   listTransactionsScoped,
+  monthlyTotalsScoped,
   summarizeTransactionsScoped,
   updateTransactionScoped
 } from '../../../server/utils/transactions'
@@ -55,14 +56,16 @@ function makeDb() {
       update,
       delete: vi.fn(async () => makeRow()),
       findFirst: vi.fn(async () => null),
-      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 }))
+      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 })),
+      groupBy: vi.fn(async (): Promise<{ date: Date, _sum: { amount: number | null } }[]> => [])
     },
     expense: {
       create,
       update,
       delete: vi.fn(async () => makeRow()),
       findFirst: vi.fn(async () => null),
-      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 }))
+      aggregate: vi.fn(async () => ({ _sum: { amount: 0 }, _count: 0 })),
+      groupBy: vi.fn(async (): Promise<{ date: Date, _sum: { amount: number | null } }[]> => [])
     },
     expenseCategory: {
       findFirst: vi.fn(async () => null),
@@ -230,6 +233,36 @@ describe('summarizeTransactionsScoped', () => {
     expect(where.user_id).toBe('u1')
     expect(where.date.gte).toEqual(new Date('2024-01-01T00:00:00.000Z'))
     expect(where.date.lte).toEqual(new Date('2024-01-31T23:59:59.999Z'))
+  })
+})
+
+describe('monthlyTotalsScoped', () => {
+  const day = (date: string, amount: number | null) => ({ date: new Date(`${date}T00:00:00.000Z`), _sum: { amount } })
+
+  it('folds daily sums into zero-filled months, oldest first', async () => {
+    db.income.groupBy = vi.fn(async () => [day('2026-08-10', 68000), day('2026-10-10', 68000), day('2026-10-31', 312.5)])
+    db.expense.groupBy = vi.fn(async () => [day('2026-08-01', 16900), day('2026-08-20', 0.1), day('2026-08-21', 0.2)])
+    const months = await monthlyTotalsScoped('u1', '2026-08', '2026-10')
+    expect(months).toEqual([
+      { month: '2026-08', income: 68000, expenses: 16900.3 },
+      { month: '2026-09', income: 0, expenses: 0 },
+      { month: '2026-10', income: 68312.5, expenses: 0 }
+    ])
+  })
+
+  it('treats a null daily sum as zero', async () => {
+    db.expense.groupBy = vi.fn(async () => [day('2026-10-01', null)])
+    const months = await monthlyTotalsScoped('u1', '2026-10', '2026-10')
+    expect(months).toEqual([{ month: '2026-10', income: 0, expenses: 0 }])
+  })
+
+  it('groups by day within the viewer and the whole months asked for', async () => {
+    await monthlyTotalsScoped('u1', '2025-11', '2026-10')
+    const args = db.expense.groupBy.mock.calls[0]![0] as unknown as { by: string[], where: { user_id: string, date: { gte: Date, lte: Date } } }
+    expect(args.by).toEqual(['date'])
+    expect(args.where.user_id).toBe('u1')
+    expect(args.where.date.gte).toEqual(new Date('2025-11-01T00:00:00.000Z'))
+    expect(args.where.date.lte).toEqual(new Date('2026-10-31T23:59:59.999Z'))
   })
 })
 
