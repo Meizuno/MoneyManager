@@ -144,13 +144,26 @@
       "deleteError": "Couldn't delete the category"
     }
   },
-  "header": {
-    "tagline": "Cashflow control"
+  "login": {
+    "pageTitle": "Sign in — Money Manager",
+    "title": "Sign in",
+    "subtitle": "With your Meizuno account — one sign-in for every Meizuno app.",
+    "google": "Continue with Google",
+    "failedTitle": "Sign-in didn't complete",
+    "failedDesc": "Please try again. If it keeps failing, the account may not have access.",
+    "headline": "Know where every crown goes.",
+    "pitch": "Plan each month's income across your categories, then see at a glance what is left — and what went over.",
+    "footer": "Part of Meizuno",
+    "featureBudget": "A monthly budget",
+    "featureBudgetText": "Every category against its share of the income.",
+    "featureQuick": "Quick to add",
+    "featureQuickText": "An amount, a category, done — from any page.",
+    "featureTrend": "The year in one chart",
+    "featureTrendText": "Twelve months of income and spending side by side."
   },
   "auth": {
     "forbidden": "Access denied (403)",
     "forbiddenDesc": "Your account is not allowed to sign in.",
-    "signIn": "Sign in with Google",
     "signedIn": "Signed in",
     "logOut": "Log out"
   }
