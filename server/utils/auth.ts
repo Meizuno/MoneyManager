@@ -1,6 +1,8 @@
 import { getCookie, getHeader, setCookie } from 'h3'
 import type { H3Event } from 'h3'
+import { createRemoteJWKSet } from 'jose'
 import { Unauthorized } from './errors'
+import { createTokenVerifier, type TokenVerifier } from './tokens'
 
 export type AuthUser = { id: string }
 
@@ -25,20 +27,37 @@ function cookieDomain(): string | undefined {
   return (useRuntimeConfig().cookieDomain as string) || undefined
 }
 
-/** Validate a token string against the auth service. */
-export async function verifyAccessToken(token: string): Promise<AuthUser | null> {
-  if (!token) return null
+/** Ask the auth service whether a token is valid; its user id, or null. */
+async function validateRemotely(token: string): Promise<string | null> {
   try {
     const config = useRuntimeConfig()
     const result = await $fetch<{ user_id: string }>(
       `${config.authServiceUrl}/validate`,
       { headers: { authorization: `Bearer ${token}` } }
     )
-    return result.user_id ? { id: result.user_id } : null
+    return result.user_id || null
   }
   catch {
     return null
   }
+}
+
+// Verified here against the auth service's keys, which jose fetches once
+// and caches (refetching for an unknown key id); see tokens.ts. Built on
+// first use, when the runtime config is there to read.
+let verifier: TokenVerifier | undefined
+function tokenVerifier(): TokenVerifier {
+  if (!verifier) {
+    const keys = createRemoteJWKSet(new URL(`${useRuntimeConfig().authServiceUrl}/.well-known/jwks.json`))
+    verifier = createTokenVerifier(keys, validateRemotely)
+  }
+  return verifier
+}
+
+/** Validate an access token; the user it belongs to, or null. */
+export async function verifyAccessToken(token: string): Promise<AuthUser | null> {
+  const id = await tokenVerifier()(token)
+  return id ? { id } : null
 }
 
 // Read a cookie from the parsed H3 cookies, falling back to the raw
