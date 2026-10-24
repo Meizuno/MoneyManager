@@ -45,6 +45,10 @@ export default defineNuxtConfig({
     // `.meizuno.com`) so one sign-in spans every *.meizuno.com app. Empty in
     // dev → host-only cookies on localhost.
     cookieDomain: "",
+    // Prometheus metrics (request durations by route, process CPU and
+    // memory) on a port of their own, apart from the app's so nothing routes
+    // to it: NUXT_METRICS_PORT, e.g. 9000. 0 → off.
+    metricsPort: 0,
   },
 
   // Auto-import server-side use-case functions from server/services

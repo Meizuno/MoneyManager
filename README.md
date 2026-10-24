@@ -47,6 +47,7 @@ env is validated at startup — the server **exits** if it's missing or invalid
 | `NUXT_DATABASE_URL` | ✅ | Postgres connection string |
 | `NUXT_AUTH_SERVICE_URL` | ✅ | Base URL of the external auth service |
 | `NUXT_MCP_API_KEY` | – | Shared key for the MCP / prompt endpoints; empty disables key auth |
+| `NUXT_METRICS_PORT` | – | Port for Prometheus metrics (request durations by route, process CPU and memory), apart from the app's so nothing public routes to it; unset = off |
 
 ## Setup
 
@@ -124,3 +125,18 @@ CI ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)):
 3. **deploy** — pulls the image and restarts the service on the VPS via Compose.
 
 A `/api/health` endpoint backs the Docker healthcheck.
+
+## Monitoring
+
+In production the app reports to the stack's monitoring
+([Meizuno/Infrastructure](https://github.com/Meizuno/Infrastructure), Grafana's
+"Meizuno — Apps" dashboard):
+
+- **Metrics** — `server/plugins/metrics.ts` serves Prometheus metrics on
+  `NUXT_METRICS_PORT`: `http_request_duration_seconds` by method, route template
+  (`/api/transactions/:id`, `page` for a server-rendered page, `static` for the
+  built client's files) and status class, timed to the last byte; plus the
+  process's CPU, memory, heap, GC and event-loop lag. `/api/health` and
+  server-side rendering's own `$fetch` calls are not counted.
+
+It is off unless `NUXT_METRICS_PORT` is set, so dev and tests run without it.

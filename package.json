@@ -21,6 +21,7 @@
 		"@nuxt/ui": "^4.4.0",
 		"@nuxtjs/i18n": "^10.2.3",
 		"@prisma/client": "^6.5.0",
+		"@prometheus-io/client": "^0.16.1",
 		"@vueuse/integrations": "^14.3.0",
 		"chart.js": "^4.5.1",
 		"nuxt": "^4.3.1",
