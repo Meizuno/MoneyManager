@@ -1,5 +1,10 @@
+// engineType "client": no Rust query engine in the process. Queries are
+// compiled in JS/WASM and run over node-postgres (server/utils/db.ts hands
+// the client a pg adapter). Measured under load, the Rust engine was most
+// of the app's CPU — ~0.5 ms per query plus ~30 µs per row returned.
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "client"
 }
 
 datasource db {

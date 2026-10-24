@@ -20,6 +20,7 @@
 		"@modelcontextprotocol/sdk": "^1.27.1",
 		"@nuxt/ui": "^4.4.0",
 		"@nuxtjs/i18n": "^10.2.3",
+		"@prisma/adapter-pg": "^6.19.2",
 		"@prisma/client": "^6.5.0",
 		"@prometheus-io/client": "^0.16.1",
 		"@pyroscope/nodejs": "~0.6.5",

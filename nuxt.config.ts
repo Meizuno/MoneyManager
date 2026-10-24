@@ -1,3 +1,15 @@
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+
+// Prisma's client engine (prisma/schema.prisma) reads its query compiler,
+// a .wasm next to the generated client, at runtime. Nitro's file tracing
+// can't see that read, so the file is named for it below. The generated
+// client sits beside @prisma/client (inside pnpm's store, not at the root).
+const prismaQueryCompiler = join(
+  dirname(createRequire(import.meta.url).resolve("@prisma/client/package.json")),
+  "..", "..", ".prisma", "client", "query_compiler_bg.wasm",
+);
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
@@ -64,6 +76,9 @@ export default defineNuxtConfig({
   nitro: {
     imports: {
       dirs: ["server/services"],
+    },
+    externals: {
+      traceInclude: [prismaQueryCompiler],
     },
   },
 });

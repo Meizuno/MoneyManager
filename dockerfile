@@ -21,7 +21,8 @@ ENV NODE_ENV=production
 ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
 
 # .output/server is a self-contained Nitro bundle with its own minimal
-# node_modules (including @prisma/client + the engine binary). We do
+# node_modules (including @prisma/client, its pg adapter and the query
+# compiler .wasm — no engine binary, see prisma/schema.prisma). We do
 # NOT copy the top-level node_modules — most of it is already inlined
 # in .output, so shipping it again would just duplicate.
 COPY --from=builder /app/.output ./.output
