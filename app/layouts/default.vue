@@ -25,6 +25,9 @@ const accountItems = computed<DropdownMenuItem[][]>(() => [
 
 // N opens a new transaction from anywhere (not while typing in a field).
 defineShortcuts({ n: () => openNew() });
+
+// Pull down from the top to reload everything, as in Forma.
+const { distance: pullDistance, pulling, ready: pullReady } = usePullToRefresh();
 </script>
 
 <template>
@@ -70,6 +73,19 @@ defineShortcuts({ n: () => openNew() });
         </div>
       </UContainer>
     </header>
+
+    <!-- Opens as the page is pulled down from the top; see usePullToRefresh. -->
+    <div
+      class="flex items-center justify-center overflow-hidden sm:hidden"
+      :class="{ 'transition-[height] duration-200 ease-out': !pulling }"
+      :style="{ height: `${pullDistance}px` }"
+      aria-hidden="true"
+    >
+      <span class="flex items-center gap-2 text-xs text-muted" :class="{ 'text-primary': pullReady }">
+        <UIcon name="i-heroicons-arrow-down" class="size-4 transition-transform duration-200" :class="{ 'rotate-180': pullReady }" />
+        {{ pullReady ? $t('pull.release') : $t('pull.pull') }}
+      </span>
+    </div>
 
     <main class="pt-4 pb-28 sm:pt-8 sm:pb-16">
       <UContainer>

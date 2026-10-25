@@ -26,6 +26,10 @@
    re-center the layout. */
 html {
   scrollbar-gutter: stable;
+  /* No rubber-band bounce on iOS: pulling down from the top is the app's own
+     pull to refresh (usePullToRefresh), and a short page should not feel
+     scrollable. */
+  overscroll-behavior: none;
 }
 
 body {
