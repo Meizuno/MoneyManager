@@ -7,6 +7,7 @@ import { elapsedShare, isMonth, periodLabel } from "~/utils/period";
 // The month's budget: what is left, each category against its plan, where
 // the income came from, the last twelve months, and the latest entries.
 // One request (/api/overview) per period, made during SSR.
+definePageMeta({ period: "month" });
 const { t } = useI18n();
 const { apiFetch } = useAuth();
 const { hydrate } = useCategories();
@@ -58,7 +59,8 @@ useHead({ title: t("overview.pageTitle") });
 
 <template>
   <div class="flex flex-col gap-4 sm:gap-6" :class="{ 'opacity-60 transition-opacity': status === 'pending' }">
-    <div class="-ml-2 flex items-center justify-between gap-3">
+    <!-- On a phone it is in the header (layouts/default.vue). -->
+    <div class="-ml-2 hidden items-center justify-between gap-3 sm:flex">
       <PeriodPicker />
     </div>
 

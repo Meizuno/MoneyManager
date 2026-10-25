@@ -4,6 +4,8 @@ import type { DropdownMenuItem } from "@nuxt/ui";
 // The app's frame. Wider screens: one header with the pages, Add and the
 // account. A phone: a slim header, and the pages as tabs along the bottom
 // with + in the middle — within reach of the thumb, like a banking app.
+// There the header also carries the month a page is about (its
+// `period` meta), which the page itself shows only on wider screens.
 const { t } = useI18n();
 const { user, logout } = useAuth();
 const { openNew } = useTransactionEditor();
@@ -28,13 +30,20 @@ defineShortcuts({ n: () => openNew() });
 <template>
   <div class="min-h-screen">
     <header class="sticky top-0 z-40 border-b border-default bg-default/80 backdrop-blur-md">
-      <UContainer class="flex h-14 items-center gap-6 sm:h-16">
-        <NuxtLink to="/" class="flex shrink-0 items-center gap-2.5">
-          <span class="grid size-8 place-items-center rounded-lg bg-linear-to-br from-cyan-500 to-cyan-700 text-white shadow-sm">
-            <UIcon name="i-heroicons-banknotes" class="size-5" />
+      <UContainer class="flex h-14 items-center gap-3 sm:h-16 sm:gap-6">
+        <NuxtLink to="/" class="flex shrink-0 items-center gap-2 sm:gap-2.5">
+          <span class="grid size-7 place-items-center rounded-lg bg-linear-to-br from-cyan-500 to-cyan-700 text-white shadow-sm sm:size-8">
+            <UIcon name="i-heroicons-banknotes" class="size-4 sm:size-5" />
           </span>
-          <span class="font-display text-base font-semibold tracking-tight text-highlighted">Money Manager</span>
+          <span class="font-display text-sm font-semibold tracking-tight text-highlighted sm:text-base">Money Manager</span>
         </NuxtLink>
+
+        <PeriodPicker
+          v-if="route.meta.period"
+          compact
+          :allow-all="route.meta.period === 'all'"
+          class="-mr-2 ml-auto sm:hidden"
+        />
 
         <nav class="hidden items-center gap-1 sm:flex">
           <NuxtLink

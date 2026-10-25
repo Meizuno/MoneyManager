@@ -6,6 +6,7 @@ import type { Transaction, TransactionType } from "#shared/schemas/transaction";
 // and category filter what is already here, so they answer as you type.
 // All of it lives in the address, so the overview can link straight to
 // "Groceries in October".
+definePageMeta({ period: "all" });
 const { t } = useI18n();
 const { apiFetch } = useAuth();
 const { splitRules, incomeCategories, ensureLoaded, colorOf } = useCategories();
@@ -98,7 +99,8 @@ useHead({ title: t("transactions.pageTitle") });
 
 <template>
   <div class="flex flex-col gap-4 sm:gap-5">
-    <div class="-ml-2">
+    <!-- On a phone it is in the header (layouts/default.vue). -->
+    <div class="-ml-2 hidden sm:block">
       <PeriodPicker allow-all />
     </div>
 

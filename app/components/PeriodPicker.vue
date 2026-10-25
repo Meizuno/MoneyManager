@@ -3,8 +3,10 @@ import { isMonth, periodLabel } from "~/utils/period";
 
 // ‹ October 2026 › — steps a month (or a year) at a time; the label opens
 // a month grid with a year switcher, the whole year, and, where the page
-// allows it, all time. Reads and writes the address via usePeriod.
-const props = defineProps<{ allowAll?: boolean }>();
+// allows it, all time. Reads and writes the address via usePeriod, so two
+// of them on one page (the phone's header, the page itself) agree.
+// `compact` is the header's: smaller, and its grid opens towards the left.
+const props = defineProps<{ allowAll?: boolean; compact?: boolean }>();
 
 const { t } = useI18n();
 const { period, thisMonth, canStepForward, step } = usePeriod({ allowAll: props.allowAll });
@@ -39,16 +41,19 @@ function pick(value: string) {
       icon="i-heroicons-chevron-left"
       color="neutral"
       variant="ghost"
+      :size="compact ? 'sm' : 'md'"
       :disabled="period === 'all'"
       :aria-label="$t('period.previous')"
       @click="step(-1)"
     />
-    <UPopover v-model:open="open" :content="{ align: 'start', sideOffset: 6 }">
+    <UPopover v-model:open="open" :content="{ align: compact ? 'end' : 'start', sideOffset: 6 }">
       <UButton
         color="neutral"
         variant="ghost"
-        trailing-icon="i-heroicons-chevron-down"
-        class="font-display text-lg font-semibold text-highlighted sm:text-xl"
+        :size="compact ? 'sm' : 'md'"
+        :trailing-icon="compact ? undefined : 'i-heroicons-chevron-down'"
+        class="font-display font-semibold whitespace-nowrap text-highlighted"
+        :class="compact ? 'px-1.5 text-base' : 'text-lg sm:text-xl'"
       >
         {{ label }}
       </UButton>
@@ -117,6 +122,7 @@ function pick(value: string) {
       icon="i-heroicons-chevron-right"
       color="neutral"
       variant="ghost"
+      :size="compact ? 'sm' : 'md'"
       :disabled="!canStepForward"
       :aria-label="$t('period.next')"
       @click="step(1)"
