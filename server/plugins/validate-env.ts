@@ -13,10 +13,9 @@ export default defineNitroPlugin(() => {
 
   const result = envSchema.safeParse(process.env)
   if (!result.success) {
-    console.error('[env] Invalid environment configuration — refusing to start:')
-    for (const issue of result.error.issues) {
-      console.error(`  - ${issue.path.join('.') || '(root)'}: ${issue.message}`)
-    }
+    useLog('env').error('invalid environment configuration, refusing to start', {
+      issues: result.error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+    })
     process.exit(1)
   }
 })

@@ -1,5 +1,3 @@
-import { consola } from 'consola'
-
 // Continuous CPU and memory profiles, pushed to Pyroscope at
 // NUXT_PYROSCOPE_SERVER_ADDRESS (e.g. http://pyroscope:4040) and shown in
 // Grafana as service `money-manager`. Unset = off, as in dev and tests.
@@ -9,7 +7,7 @@ import { consola } from 'consola'
 // request awaiting Postgres is on no stack meanwhile. Memory is V8's
 // sampling heap profiler: what is still held, not what was allocated and
 // freed since.
-const log = consola.withTag('profiling')
+const log = useLog('profiling')
 
 export default defineNitroPlugin(async (nitroApp) => {
   if (import.meta.prerender) return
@@ -28,6 +26,6 @@ export default defineNitroPlugin(async (nitroApp) => {
     nitroApp.hooks.hook('close', () => Pyroscope.stop())
   }
   catch (error) {
-    log.error('profiling is off', error)
+    log.error('profiling is off', { error })
   }
 })
