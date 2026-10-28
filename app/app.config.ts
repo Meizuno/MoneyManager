@@ -17,6 +17,14 @@ export default defineAppConfig({
         description: "text-sm text-muted",
         close: "p-0 text-dimmed",
       },
+      // Centred, not top-aligned: a notice that is only a title sat its one
+      // line at the top of the 32 px circle beside it. A variant rather than
+      // the root slot, because the variant's items-start comes after the slot.
+      variants: {
+        orientation: {
+          vertical: { root: "items-center" },
+        },
+      },
     },
   },
 });
