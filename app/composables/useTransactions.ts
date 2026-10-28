@@ -1,11 +1,11 @@
 import type { CreateTransactionPayload, UpdateTransactionPayload } from "#shared/schemas/transaction";
 
-// Writing transactions: create, update and delete, each with its toast.
+// Writing transactions: create, update and delete, each with its notice.
 // Afterwards every useAsyncData on the page is refreshed (the overview,
 // the transaction list), so whatever is on screen shows the change.
 export const useTransactions = () => {
   const { t } = useI18n();
-  const toast = useToast();
+  const notice = useNotice();
   const { apiFetch } = useAuth();
 
   // The server's own message when it sent one ("Category is required"),
@@ -18,12 +18,12 @@ export const useTransactions = () => {
   const run = async (request: () => Promise<unknown>, done: string, failed: string) => {
     try {
       await request();
-      toast.add({ title: t(done), color: "success", icon: "i-heroicons-check-circle" });
+      notice.done(t(done));
       await refreshNuxtData();
       return true;
     }
     catch (error) {
-      toast.add({ title: t(failed), description: reasonOf(error), color: "error", icon: "i-heroicons-exclamation-triangle" });
+      notice.failed(t(failed), reasonOf(error));
       return false;
     }
   };

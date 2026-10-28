@@ -9,7 +9,7 @@ import { currentMonth, periodLabel, periodRange } from "~/utils/period";
 // categories income is filed under. Edits save as you type; the grip
 // reorders.
 const { t } = useI18n();
-const toast = useToast();
+const notice = useNotice();
 const { apiFetch } = useAuth();
 useHead({ title: t("plan.pageTitle") });
 
@@ -55,7 +55,7 @@ const onCategoryInput = (category: IncomeCategory) => later(`category:${category
 
 function failed(title: string, error?: unknown) {
   const message = (error as { data?: { message?: string } } | undefined)?.data?.message;
-  toast.add({ title: t(title), description: message, color: "error", icon: "i-heroicons-exclamation-triangle" });
+  notice.failed(t(title), message);
 }
 
 // A category still used by transactions can't go; the server says so.

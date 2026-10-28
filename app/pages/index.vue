@@ -49,7 +49,7 @@ function openMonth(month: string) {
 onMounted(() => {
   const route = useRoute();
   if (route.query.auth === "forbidden") {
-    useToast().add({ title: t("auth.forbidden"), description: t("auth.forbiddenDesc"), color: "error" });
+    useNotice().failed(t("auth.forbidden"), t("auth.forbiddenDesc"));
     navigateTo(route.path, { replace: true });
   }
 });
