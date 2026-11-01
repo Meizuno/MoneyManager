@@ -16,13 +16,13 @@ export type TransactionType = z.infer<typeof transactionTypeSchema>
 // format is ISO-date and the service converts to a real Date when it
 // reaches Prisma. Keeping it a string lets the schema be reused on the
 // client for form state without an extra serialisation hop.
-const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
+export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
 
 // Amount: accept either a number or a string. Strings tolerate
 // `"1 000,50"`-style locale formatting (spaces stripped, comma → dot)
 // because the form on the client sometimes sends raw input. The
 // service .abs()s and uses sign to infer type when caller omitted it.
-const amountSchema = z.union([z.number(), z.string()])
+export const amountSchema = z.union([z.number(), z.string()])
   .transform((v, ctx) => {
     const n = typeof v === 'number'
       ? v
@@ -65,7 +65,7 @@ export function parseCategoryId(
 // "Food", a negative or non-integer) is REJECTED as a validation issue —
 // the same rule the MCP boundary enforces, via the shared parseCategoryId
 // — rather than silently collapsing to 0.
-const categorySchema = z.union([z.number(), z.string()])
+export const categorySchema = z.union([z.number(), z.string()])
   .transform((v, ctx) => {
     const parsed = parseCategoryId(v)
     if (parsed === INVALID_CATEGORY_ID) {
@@ -85,7 +85,7 @@ const categorySchema = z.union([z.number(), z.string()])
 export const DEFAULT_CURRENCY = 'CZK'
 
 // Currency is optional and nullable; empty/whitespace collapses to null.
-const currencySchema = z.string()
+export const currencySchema = z.string()
   .transform(v => v.trim())
   .transform(v => v.length > 0 ? v : null)
   .nullable()
@@ -202,5 +202,8 @@ export type Transaction = {
   currency: string | null
   type: TransactionType
   category: TransactionCategory
+  // The recurring transaction that wrote it, or null for one entered by
+  // hand. Editing or deleting it touches this one occurrence only.
+  recurring_id: number | null
   created_at: string
 }

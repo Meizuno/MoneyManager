@@ -156,8 +156,13 @@ export async function deleteExpenseCategoryScoped(
   const db = getPrisma()
   // Refuse to delete a category still referenced by expense transactions —
   // category reads are strict, so orphaning a reference would break them.
-  const inUse = await db.expense.count({ where: { user_id: viewerId, category: id } })
-  if (inUse > 0) throw new CategoryInUse(id, inUse)
+  // A recurring expense counts too: its next occurrence would be written
+  // under a category that is gone.
+  const [inUse, recurring] = await Promise.all([
+    db.expense.count({ where: { user_id: viewerId, category: id } }),
+    db.recurringTransaction.count({ where: { user_id: viewerId, type: 'expense', category: id } })
+  ])
+  if (inUse > 0 || recurring > 0) throw new CategoryInUse(id, inUse, recurring)
   const { count } = await db.expenseCategory.deleteMany({
     where: { id, user_id: viewerId }
   })

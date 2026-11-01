@@ -67,6 +67,9 @@ export default defineNuxtConfig({
     // Pyroscope server the app pushes CPU and memory profiles to:
     // NUXT_PYROSCOPE_SERVER_ADDRESS, e.g. http://pyroscope:4040. Empty → off.
     pyroscopeServerAddress: "",
+    // The zone recurring transactions keep their dates in — what "today"
+    // is when one comes due: NUXT_TIMEZONE, an IANA name.
+    timezone: "Europe/Prague",
   },
 
   // Auto-import server-side use-case functions from server/services

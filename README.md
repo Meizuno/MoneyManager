@@ -49,6 +49,7 @@ env is validated at startup — the server **exits** if it's missing or invalid
 | `NUXT_MCP_API_KEY` | – | Shared key for the MCP / prompt endpoints; empty disables key auth |
 | `NUXT_METRICS_PORT` | – | Port for Prometheus metrics (request durations by route, process CPU and memory), apart from the app's so nothing public routes to it; unset = off |
 | `NUXT_PYROSCOPE_SERVER_ADDRESS` | – | Pyroscope server to push CPU and memory profiles to, e.g. `http://pyroscope:4040`; unset = off |
+| `NUXT_TIMEZONE` | – | IANA zone recurring transactions keep their dates in (what "today" is when one comes due); default `Europe/Prague` |
 
 ## Setup
 
@@ -93,7 +94,7 @@ test/        mirrors source (test/server/**)
 
 ## Resources
 
-The HTTP API exposes three CRUD resources, each backed by a scoped
+The HTTP API exposes four CRUD resources, each backed by a scoped
 data-access util that owns the `user_id` filter:
 
 | Resource | URL | Data access | Notes |
@@ -101,6 +102,7 @@ data-access util that owns the `user_id` filter:
 | Transactions | `/api/transactions/*` | `server/utils/transactions.ts` | Income + expense live in separate tables; the util routes between them so callers see one resource |
 | Income categories | `/api/income-categories/*` | `server/utils/income-categories.ts` | Auto-coloured + auto-positioned on create |
 | Expense categories | `/api/sales-split/*` | `server/utils/expense-categories.ts` | Same as income categories plus a 0–100 % allocation |
+| Recurring transactions | `/api/recurring/*` | `server/utils/recurring.ts` | Rules that write an income or expense every N days / weeks / months / years; a server job (`server/plugins/recurring.ts`) writes each occurrence as it comes due, idempotently |
 
 The same scoped utilities power the MCP tools in `server/utils/mcp/*`, so the
 visibility scope, table routing, and typed not-found errors exist in exactly

@@ -151,8 +151,13 @@ export async function deleteIncomeCategoryScoped(
   id: number
 ): Promise<{ deleted: number }> {
   const db = getPrisma()
-  const inUse = await db.income.count({ where: { user_id: viewerId, category: id } })
-  if (inUse > 0) throw new CategoryInUse(id, inUse)
+  // A recurring income counts too: its next occurrence would be written
+  // under a category that is gone.
+  const [inUse, recurring] = await Promise.all([
+    db.income.count({ where: { user_id: viewerId, category: id } }),
+    db.recurringTransaction.count({ where: { user_id: viewerId, type: 'income', category: id } })
+  ])
+  if (inUse > 0 || recurring > 0) throw new CategoryInUse(id, inUse, recurring)
   const { count } = await db.incomeCategory.deleteMany({
     where: { id, user_id: viewerId }
   })

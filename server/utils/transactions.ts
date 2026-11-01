@@ -35,6 +35,7 @@ type DbRow = {
   amount: Prisma.Decimal
   currency: string | null
   category: number
+  recurring_id: number | null
   created_at: Date
 }
 
@@ -56,6 +57,7 @@ function toTransaction(row: DbRow, type: TransactionType, labels: Map<number, st
     currency: row.currency,
     type,
     category: { id: row.category, label },
+    recurring_id: row.recurring_id,
     created_at: row.created_at.toISOString()
   }
 }
@@ -80,7 +82,7 @@ function rowDataFromInput(input: CreateTransactionInput | UpdateTransactionInput
 // transaction type (expense → expense_categories, income →
 // income_categories). There is no uncategorised sentinel — 0 has no row
 // and so fails this check like any other non-existent id (CategoryNotFound).
-async function assertCategoryValid(
+export async function assertCategoryValid(
   viewerId: string,
   type: TransactionType,
   category: number
@@ -127,7 +129,7 @@ const NO_LABELS = new Map<number, string>()
 
 // The columns a Transaction is built from. user_id is the filter, never
 // part of the answer, so it isn't read back.
-const COLUMNS = { id: true, date: true, name: true, amount: true, currency: true, category: true, created_at: true } as const
+const COLUMNS = { id: true, date: true, name: true, amount: true, currency: true, category: true, recurring_id: true, created_at: true } as const
 
 async function labelsScoped(viewerId: string, income: boolean, expense: boolean): Promise<CategoryLabels> {
   const [incomeLabels, expenseLabels] = await Promise.all([
@@ -387,7 +389,9 @@ export async function updateTransactionScoped(
 
   // Type changed → delete from the old table and create in the new
   // one. The fields we're not explicitly updating fall back to the
-  // existing row's values so the moved record keeps its identity.
+  // existing row's values so the moved record keeps its identity — all but
+  // its recurring transaction: that one writes the other type, so a row
+  // that has changed sides is no longer one of its occurrences.
   const fullData = {
     user_id: viewerId,
     date: data.date ?? existing.row.date,

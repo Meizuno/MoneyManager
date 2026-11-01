@@ -16,7 +16,8 @@ function makeDb() {
     expense: { count: vi.fn(async () => 0) },
     income: { count: vi.fn(async () => 0) },
     expenseCategory: { deleteMany: vi.fn(async () => ({ count: 1 })) },
-    incomeCategory: { deleteMany: vi.fn(async () => ({ count: 1 })) }
+    incomeCategory: { deleteMany: vi.fn(async () => ({ count: 1 })) },
+    recurringTransaction: { count: vi.fn(async () => 0) }
   }
 }
 
@@ -36,6 +37,15 @@ describe('deleteExpenseCategoryScoped — in-use guard', () => {
   it('deletes when nothing references it', async () => {
     db.expense.count.mockResolvedValue(0)
     await expect(deleteExpenseCategoryScoped('u1', 3)).resolves.toEqual({ deleted: 3 })
+  })
+
+  // A recurring expense would write its next occurrence under a category
+  // that is gone — strict reads would then fail on it.
+  it('refuses while a recurring expense still uses it, though no transaction does yet', async () => {
+    db.recurringTransaction.count.mockResolvedValue(1)
+    await expect(deleteExpenseCategoryScoped('u1', 3)).rejects.toBeInstanceOf(CategoryInUse)
+    expect(db.recurringTransaction.count).toHaveBeenCalledWith({ where: { user_id: 'u1', type: 'expense', category: 3 } })
+    expect(db.expenseCategory.deleteMany).not.toHaveBeenCalled()
   })
 
   it('throws ExpenseCategoryNotFound when no row matched', async () => {

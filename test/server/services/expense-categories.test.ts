@@ -43,7 +43,8 @@ function makeDb() {
       findUniqueOrThrow: vi.fn(async () => ({ ...row, id: 2 })),
       deleteMany: vi.fn(async () => ({ count: 1 }))
     },
-    expense: { count: vi.fn(async () => 0) }
+    expense: { count: vi.fn(async () => 0) },
+    recurringTransaction: { count: vi.fn(async () => 0) }
   }
 }
 

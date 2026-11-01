@@ -3,6 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { registerTransactionTools } from '../utils/mcp/transactions'
 import { registerExpenseCategoryTools } from '../utils/mcp/expense-categories'
 import { registerIncomeCategoryTools } from '../utils/mcp/income-categories'
+import { registerRecurringTools } from '../utils/mcp/recurring'
 import { resolvePrincipal } from '../utils/principal'
 
 // MCP endpoint. Authenticates ONLY via a PAT (Authorization: Bearer
@@ -24,6 +25,7 @@ export default defineEventHandler(async (event) => {
   registerTransactionTools(server, db, principal)
   registerExpenseCategoryTools(server, db, principal)
   registerIncomeCategoryTools(server, db, principal)
+  registerRecurringTools(server, db, principal)
 
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
   await server.connect(transport)

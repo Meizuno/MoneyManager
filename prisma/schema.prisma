@@ -13,14 +13,18 @@ datasource db {
 }
 
 model Income {
-  id         Int      @id @default(autoincrement())
-  date       DateTime
-  name       String
-  amount     Decimal  @db.Decimal(10, 2)
-  currency   String?
-  category   Int      @default(0)
-  user_id    String
-  created_at DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  date         DateTime
+  name         String
+  amount       Decimal  @db.Decimal(10, 2)
+  currency     String?
+  category     Int      @default(0)
+  user_id      String
+  // The recurring transaction that wrote this one, or null for one written
+  // by hand. Unique with the date: an occurrence is written once however
+  // many times the job that writes it runs.
+  recurring_id Int?
+  created_at   DateTime @default(now())
 
   // Composite indexes matching the scoped queries: every read filters by
   // user_id first, then a date range (list/summary) or category id (the
@@ -28,23 +32,29 @@ model Income {
   // user_id lookups, so the old single-column indexes are redundant.
   @@index([user_id, date])
   @@index([user_id, category])
+  @@unique([recurring_id, date])
   @@map("incomes")
 }
 
 model Expense {
-  id         Int      @id @default(autoincrement())
-  date       DateTime
-  name       String
-  amount     Decimal  @db.Decimal(10, 2)
-  currency   String?
-  category   Int      @default(0)
-  user_id    String
-  created_at DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  date         DateTime
+  name         String
+  amount       Decimal  @db.Decimal(10, 2)
+  currency     String?
+  category     Int      @default(0)
+  user_id      String
+  // The recurring transaction that wrote this one, or null for one written
+  // by hand. Unique with the date: an occurrence is written once however
+  // many times the job that writes it runs.
+  recurring_id Int?
+  created_at   DateTime @default(now())
 
   // See Income: composite (user_id, date) and (user_id, category) cover
   // the scoped list/summary and category-in-use queries respectively.
   @@index([user_id, date])
   @@index([user_id, category])
+  @@unique([recurring_id, date])
   @@map("expenses")
 }
 
@@ -78,6 +88,33 @@ model IncomeCategory {
 
   @@index([user_id])
   @@map("income_categories")
+}
+
+// A transaction that writes itself: one occurrence every `every` `unit`s
+// (day, week, month, year) from `start_date`, until `end_date` if there is
+// one. `next_date` is the next occurrence still to be written; the job in
+// server/plugins/recurring.ts writes every one that has come due and moves
+// it on (server/utils/recurring.ts). A monthly or yearly one keeps the day
+// of `start_date`, falling back to the month's last day where it is short.
+model RecurringTransaction {
+  id         Int       @id @default(autoincrement())
+  user_id    String
+  type       String // 'income' | 'expense'
+  name       String
+  amount     Decimal   @db.Decimal(10, 2)
+  currency   String?
+  category   Int
+  unit       String // 'day' | 'week' | 'month' | 'year'
+  every      Int       @default(1)
+  start_date DateTime
+  end_date   DateTime?
+  next_date  DateTime
+  paused     Boolean   @default(false)
+  created_at DateTime  @default(now())
+
+  @@index([user_id])
+  @@index([next_date])
+  @@map("recurring_transactions")
 }
 
 // Scoped personal access tokens. Only the sha256 hash of the token is

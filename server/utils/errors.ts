@@ -88,12 +88,23 @@ export class CategoryNotFound extends DomainError {
 // it. Deleting it would orphan those rows (whose reads are now strict),
 // so the delete is refused until they're recategorised.
 export class CategoryInUse extends DomainError {
-  constructor(id: number | string, count: number) {
+  constructor(id: number | string, count: number, recurring = 0) {
+    const users = [
+      count ? `${count} transaction(s)` : '',
+      recurring ? `${recurring} recurring transaction(s)` : ''
+    ].filter(Boolean).join(' and ')
     super(
       409,
       'Category in use',
-      `Category ${id} is used by ${count} transaction(s) and cannot be deleted`
+      `Category ${id} is used by ${users} and cannot be deleted`
     )
+  }
+}
+
+// 404 — a recurring transaction that is not the viewer's, or not there.
+export class RecurringNotFound extends DomainError {
+  constructor(id?: number | string) {
+    super(404, 'Recurring transaction not found', id ? `Recurring transaction ${id} not found` : undefined)
   }
 }
 
