@@ -17,6 +17,7 @@ function toIncomeCategory(row: {
   label: string
   color: string
   position: number
+  is_default: boolean
   created_at: Date
 }): IncomeCategory {
   return {
@@ -24,6 +25,7 @@ function toIncomeCategory(row: {
     label: row.label,
     color: row.color,
     position: row.position,
+    is_default: row.is_default,
     created_at: row.created_at.toISOString()
   }
 }
@@ -59,6 +61,16 @@ export async function incomeCategoryExists(viewerId: string, id: number): Promis
     select: { id: true }
   })
   return row !== null
+}
+
+// The viewer's default income category, or null when none is set. What a
+// new income falls back to when nothing of its name came before.
+export async function defaultIncomeCategory(viewerId: string): Promise<number | null> {
+  const row = await getPrisma().incomeCategory.findFirst({
+    where: { user_id: viewerId, is_default: true },
+    select: { id: true }
+  })
+  return row?.id ?? null
 }
 
 // id → label map for the viewer's income categories. Mirrors
@@ -97,17 +109,34 @@ export async function createIncomeCategoryScoped(
 // so a stranger holding an id can't modify another user's category.
 // `data` must contain at least one field — empty updates are a 400
 // from the service.
+//
+// Becoming the default takes the mark off whichever category had it, in
+// the same transaction, so a user never has two. Ownership is checked
+// first: a stranger's id must not clear this user's default on its way to
+// a 404.
 export async function updateIncomeCategoryScoped(
   viewerId: string,
   id: number,
   data: Prisma.IncomeCategoryUpdateInput
 ): Promise<IncomeCategory> {
   const db = getPrisma()
-  const { count } = await db.incomeCategory.updateMany({
-    where: { id, user_id: viewerId },
-    data
-  })
-  if (count === 0) throw new IncomeCategoryNotFound(id)
+  if (data.is_default === true) {
+    if (!(await incomeCategoryExists(viewerId, id))) throw new IncomeCategoryNotFound(id)
+    await db.$transaction([
+      db.incomeCategory.updateMany({
+        where: { user_id: viewerId, is_default: true, NOT: { id } },
+        data: { is_default: false }
+      }),
+      db.incomeCategory.updateMany({ where: { id, user_id: viewerId }, data })
+    ])
+  }
+  else {
+    const { count } = await db.incomeCategory.updateMany({
+      where: { id, user_id: viewerId },
+      data
+    })
+    if (count === 0) throw new IncomeCategoryNotFound(id)
+  }
   // updateMany returns a count, not the row; one extra read for the
   // fresh projection. Same trade the old handler made.
   const row = await db.incomeCategory.findUniqueOrThrow({ where: { id } })

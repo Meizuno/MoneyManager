@@ -13,12 +13,16 @@ export interface SplitRule {
   label: string
   percent: number
   color: string
+  // The one a new expense takes when created without a category and
+  // nothing of its name came before. At most one per list.
+  is_default: boolean
 }
 
 export interface IncomeCategory {
   id: number
   label: string
   color: string
+  is_default: boolean
 }
 
 export const useCategories = () => {
@@ -135,6 +139,25 @@ export const useCategories = () => {
     if (rows) incomeCategories.value = rows;
   };
 
+  // Make a category its list's default, or (on === false) leave the list
+  // without one. The server clears the old default in the same write; the
+  // cache does the same here, so the stars move at once.
+  const setDefault = async (type: "income" | "expense", id: number, on: boolean) => {
+    const list = type === "expense" ? splitRules : incomeCategories;
+    const before = list.value.map((c) => c.is_default);
+    for (const c of list.value) c.is_default = on && c.id === id;
+    try {
+      await apiFetch(`/api/${type === "expense" ? "sales-split" : "income-categories"}/${id}`, {
+        method: "PUT",
+        body: { is_default: on },
+      });
+    }
+    catch (error) {
+      list.value.forEach((c, i) => (c.is_default = before[i] ?? false));
+      throw error;
+    }
+  };
+
   // The categories a transaction of `type` can take, in the user's order.
   const categoriesFor = (type: "income" | "expense") =>
     type === "expense" ? splitRules.value : incomeCategories.value;
@@ -164,5 +187,6 @@ export const useCategories = () => {
     updateCategory,
     removeCategory,
     reorderCategories,
+    setDefault,
   };
 };

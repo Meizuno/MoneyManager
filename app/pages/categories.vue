@@ -28,6 +28,7 @@ const {
   updateCategory,
   removeCategory,
   reorderCategories,
+  setDefault,
 } = useCategories();
 
 // This month's income turns the percentages into amounts.
@@ -67,6 +68,14 @@ async function remove(kind: "rule" | "category", id: number) {
     failed("plan.toast.deleteError", error);
   }
 }
+async function toggleDefault(type: "income" | "expense", category: { id: number, is_default: boolean }) {
+  try {
+    await setDefault(type, category.id, !category.is_default);
+  }
+  catch (error) {
+    failed("plan.toast.defaultError", error);
+  }
+}
 async function add(kind: "rule" | "category") {
   try {
     await (kind === "rule" ? addRule() : addCategory());
@@ -104,6 +113,7 @@ useSortable(categoriesEl, categories, {
     <div>
       <h1 class="font-display text-2xl font-semibold tracking-tight text-highlighted">{{ $t('plan.title') }}</h1>
       <p class="mt-1 max-w-2xl text-sm text-muted">{{ $t('plan.description') }}</p>
+      <p class="mt-1 max-w-2xl text-xs text-dimmed">{{ $t('plan.defaultHint') }}</p>
     </div>
 
     <!-- How the income is split -->
@@ -144,7 +154,7 @@ useSortable(categoriesEl, categories, {
       />
     </section>
 
-    <div class="grid items-start gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+    <div class="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
       <!-- Expense categories: each one's share -->
       <section class="panel p-5 sm:p-6">
         <header class="mb-3 flex items-start justify-between gap-3">
@@ -190,6 +200,20 @@ useSortable(categoriesEl, categories, {
             <span class="hidden w-24 shrink-0 text-right text-sm tabular-nums text-muted sm:block">
               {{ income > 0 ? amountOf(rule.percent) : '—' }}
             </span>
+            <!-- The default: where a new entry with no category goes when its
+                 name has no history. Filled for the one that is; a tap on
+                 it again leaves the list with none. -->
+            <UButton
+              :icon="rule.is_default ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :class="rule.is_default ? 'text-amber-500 hover:text-amber-600' : 'opacity-60 group-hover:opacity-100'"
+              :aria-pressed="rule.is_default"
+              :aria-label="$t(rule.is_default ? 'plan.default' : 'plan.makeDefault')"
+              :title="$t(rule.is_default ? 'plan.default' : 'plan.makeDefault')"
+              @click="toggleDefault('expense', rule)"
+            />
             <UButton
               icon="i-heroicons-trash"
               color="neutral"
@@ -232,6 +256,20 @@ useSortable(categoriesEl, categories, {
               :aria-label="$t('plan.name')"
               @input="onCategoryInput(category)"
             >
+            <!-- The default: where a new entry with no category goes when its
+                 name has no history. Filled for the one that is; a tap on
+                 it again leaves the list with none. -->
+            <UButton
+              :icon="category.is_default ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :class="category.is_default ? 'text-amber-500 hover:text-amber-600' : 'opacity-60 group-hover:opacity-100'"
+              :aria-pressed="category.is_default"
+              :aria-label="$t(category.is_default ? 'plan.default' : 'plan.makeDefault')"
+              :title="$t(category.is_default ? 'plan.default' : 'plan.makeDefault')"
+              @click="toggleDefault('income', category)"
+            />
             <UButton
               icon="i-heroicons-trash"
               color="neutral"

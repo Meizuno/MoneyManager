@@ -29,7 +29,7 @@ export function registerExpenseCategoryTools(server: McpServer, db: PrismaClient
     server.registerTool(
       'get_expense_categories',
       {
-        description: 'Return all expense categories for the current user. Each category has id, label, percent, and color. Use the id as transaction.category when creating or filtering expense transactions. No parameters required.',
+        description: 'Return all expense categories for the current user. Each category has id, label, percent, color, and is_default (the one a new expense falls back to when created without a category). Use the id as transaction.category when creating or filtering expense transactions. No parameters required.',
         inputSchema: z.object({})
       },
       async () => {

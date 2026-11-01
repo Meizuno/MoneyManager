@@ -55,6 +55,11 @@ model ExpenseCategory {
   percent    Decimal  @db.Decimal(5, 2)
   color      String
   position   Int      @default(0)
+  // The one a new expense falls back to when it is created without a
+  // category and nothing of the same name came before. At most one per
+  // user — kept so by setDefault in server/utils/expense-categories.ts,
+  // which clears the old one in the same transaction.
+  is_default Boolean  @default(false)
   created_at DateTime @default(now())
 
   @@index([user_id])
@@ -67,6 +72,8 @@ model IncomeCategory {
   label      String
   color      String
   position   Int      @default(0)
+  // See ExpenseCategory.is_default — the same, for income.
+  is_default Boolean  @default(false)
   created_at DateTime @default(now())
 
   @@index([user_id])

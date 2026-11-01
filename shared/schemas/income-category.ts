@@ -17,7 +17,10 @@ export type CreateIncomeCategoryInput = z.infer<typeof createIncomeCategorySchem
 // in the service (zod allows the empty object; the service treats it
 // as "nothing to update" and 400s).
 export const updateIncomeCategorySchema = z.object({
-  label: z.string().trim().min(1, 'Label is required').max(100).optional()
+  label: z.string().trim().min(1, 'Label is required').max(100).optional(),
+  // true makes it the default (and the previous default stops being one);
+  // false leaves the user with none.
+  is_default: z.boolean().optional()
 })
 export type UpdateIncomeCategoryInput = z.infer<typeof updateIncomeCategorySchema>
 
@@ -28,6 +31,8 @@ export type IncomeCategory = {
   label: string
   color: string
   position: number
+  // The category a new income falls back to — see resolveCategoryScoped.
+  is_default: boolean
   created_at: string
 }
 

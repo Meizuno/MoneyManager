@@ -29,7 +29,7 @@ export function registerIncomeCategoryTools(server: McpServer, _db: PrismaClient
     server.registerTool(
       'get_income_categories',
       {
-        description: 'Return all income categories for the current user. Each category has id, label, and color. Use the id as transaction.category when creating or filtering income transactions. No parameters required.',
+        description: 'Return all income categories for the current user. Each category has id, label, color, and is_default (the one a new income falls back to when created without a category). Use the id as transaction.category when creating or filtering income transactions. No parameters required.',
         inputSchema: z.object({})
       },
       async () => {

@@ -25,7 +25,10 @@ export type CreateExpenseCategoryInput = z.infer<typeof createExpenseCategorySch
 // object as 400 ("nothing to update").
 export const updateExpenseCategorySchema = z.object({
   label: z.string().trim().min(1, 'Label is required').max(100).optional(),
-  percent: percentSchema.optional()
+  percent: percentSchema.optional(),
+  // true makes it the default (and the previous default stops being one);
+  // false leaves the user with none.
+  is_default: z.boolean().optional()
 })
 export type UpdateExpenseCategoryInput = z.infer<typeof updateExpenseCategorySchema>
 
@@ -37,6 +40,8 @@ export type ExpenseCategory = {
   percent: number
   color: string
   position: number
+  // The category a new expense falls back to — see resolveCategoryScoped.
+  is_default: boolean
   created_at: string
 }
 

@@ -18,6 +18,7 @@ type DbRow = {
   percent: Prisma.Decimal
   color: string
   position: number
+  is_default: boolean
   created_at: Date
 }
 
@@ -30,6 +31,7 @@ function toExpenseCategory(row: DbRow): ExpenseCategory {
     percent: Number(row.percent),
     color: row.color,
     position: row.position,
+    is_default: row.is_default,
     created_at: row.created_at.toISOString()
   }
 }
@@ -66,6 +68,16 @@ export async function expenseCategoryExists(viewerId: string, id: number): Promi
     select: { id: true }
   })
   return row !== null
+}
+
+// The viewer's default expense category, or null when none is set. What a
+// new expense falls back to when nothing of its name came before.
+export async function defaultExpenseCategory(viewerId: string): Promise<number | null> {
+  const row = await getPrisma().expenseCategory.findFirst({
+    where: { user_id: viewerId, is_default: true },
+    select: { id: true }
+  })
+  return row?.id ?? null
 }
 
 // id → label map for the viewer's expense categories. Used by the
@@ -108,14 +120,31 @@ export async function updateExpenseCategoryScoped(
   // `.optional()` on each field.
   const data: Prisma.ExpenseCategoryUpdateInput = {
     ...(input.label !== undefined ? { label: input.label } : {}),
-    ...(input.percent !== undefined ? { percent: input.percent } : {})
+    ...(input.percent !== undefined ? { percent: input.percent } : {}),
+    ...(input.is_default !== undefined ? { is_default: input.is_default } : {})
   }
   const db = getPrisma()
-  const { count } = await db.expenseCategory.updateMany({
-    where: { id, user_id: viewerId },
-    data
-  })
-  if (count === 0) throw new ExpenseCategoryNotFound(id)
+  // Becoming the default takes the mark off whichever category had it, in
+  // the same transaction, so a user never has two. Ownership is checked
+  // first: a stranger's id must not clear this user's default on its way
+  // to a 404.
+  if (input.is_default === true) {
+    if (!(await expenseCategoryExists(viewerId, id))) throw new ExpenseCategoryNotFound(id)
+    await db.$transaction([
+      db.expenseCategory.updateMany({
+        where: { user_id: viewerId, is_default: true, NOT: { id } },
+        data: { is_default: false }
+      }),
+      db.expenseCategory.updateMany({ where: { id, user_id: viewerId }, data })
+    ])
+  }
+  else {
+    const { count } = await db.expenseCategory.updateMany({
+      where: { id, user_id: viewerId },
+      data
+    })
+    if (count === 0) throw new ExpenseCategoryNotFound(id)
+  }
   const row = await db.expenseCategory.findUniqueOrThrow({ where: { id } })
   return toExpenseCategory(row)
 }

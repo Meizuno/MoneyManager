@@ -95,7 +95,7 @@
     "newExpense": "New expense",
     "newIncome": "New income",
     "editTitle": "Edit transaction",
-    "newDescription": "Enter the amount, pick a category and a date. The name is optional.",
+    "newDescription": "Enter the amount and a date. The category can be left: the entry goes where the same name went last time, or to your default.",
     "editDescription": "Change any field and save, or delete the transaction."
   },
   "form": {
@@ -104,6 +104,10 @@
     "currency": "Currency",
     "category": "Category",
     "manageCategories": "Manage",
+    "autoPrevious": "As last time",
+    "autoDefault": "Default",
+    "autoHint": "Leave it unpicked and the entry goes under the category it had last time, or your default.",
+    "chooseCategory": "Pick a category — nothing of this name came before and no default is set.",
     "noExpenseCategories": "No expense categories yet — add them under Budget.",
     "noIncomeCategories": "No income categories yet — add them under Budget.",
     "name": "Name",
@@ -139,12 +143,16 @@
     "name": "Name",
     "percent": "Share of income",
     "drag": "Drag to reorder",
+    "default": "Default category",
+    "makeDefault": "Make it the default",
+    "defaultHint": "★ marks the default: a new entry with no category goes there unless the same name had another one before.",
     "newExpenseCategory": "New category",
     "newIncomeCategory": "New category",
     "toast": {
       "addError": "Couldn't add the category",
       "saveError": "Couldn't save the change",
-      "deleteError": "Couldn't delete the category"
+      "deleteError": "Couldn't delete the category",
+      "defaultError": "Couldn't change the default category"
     }
   },
   "login": {
