@@ -172,7 +172,8 @@
       "addError": "Couldn't add the category",
       "saveError": "Couldn't save the change",
       "deleteError": "Couldn't delete the category",
-      "defaultError": "Couldn't change the default category"
+      "defaultError": "Couldn't change the default category",
+      "reorderError": "Couldn't save the new order"
     }
   },
   "login": {

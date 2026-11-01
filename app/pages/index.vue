@@ -10,7 +10,7 @@ import { elapsedShare, isMonth, periodLabel } from "~/utils/period";
 definePageMeta({ period: "month" });
 const { t } = useI18n();
 const { apiFetch } = useAuth();
-const { hydrate } = useCategories();
+const { hydrate, splitRules, incomeCategories } = useCategories();
 const { openNew } = useTransactionEditor();
 const { period, range } = usePeriod();
 
@@ -20,16 +20,19 @@ const { data, status } = await useAsyncData(
   { watch: [range] },
 );
 
-// The form's category chips read the same cache.
+// The categories go into the shared cache, and the cards below read them
+// from there rather than from this response: a reorder, a rename or a new
+// share on the budget page changes the cache, and the overview should show
+// it without waiting for its own next fetch. The form's chips read it too.
 watch(data, (overview) => {
   if (overview) hydrate({ splitRules: overview.splitRules, incomeCategories: overview.incomeCategories });
 }, { immediate: true });
 
 const items = computed(() => data.value?.items ?? []);
 const summary = computed(() => data.value?.summary ?? { income: 0, expenses: 0, net: 0, incomeCount: 0, expenseCount: 0 });
-const budget = computed(() => budgetRows(data.value?.splitRules ?? [], items.value, summary.value.income));
-const income = computed(() => incomeRows(data.value?.incomeCategories ?? [], items.value));
-const spare = computed(() => unallocated(data.value?.splitRules ?? [], summary.value.income));
+const budget = computed(() => budgetRows(splitRules.value, items.value, summary.value.income));
+const income = computed(() => incomeRows(incomeCategories.value, items.value));
+const spare = computed(() => unallocated(splitRules.value, summary.value.income));
 const elapsed = computed(() => elapsedShare(period.value));
 const recent = computed(() => items.value.slice(0, 8));
 

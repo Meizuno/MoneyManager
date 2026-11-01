@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useSortable } from "@vueuse/integrations/useSortable";
+import type { Ref } from "vue";
+import { moveArrayElement, useSortable } from "@vueuse/integrations/useSortable";
 import type { TransactionSummary } from "#shared/schemas/transaction";
 import type { IncomeCategory, SplitRule } from "~/composables/useCategories";
 import { currentMonth, periodLabel, periodRange } from "~/utils/period";
@@ -86,25 +87,36 @@ async function add(kind: "rule" | "category") {
 }
 
 // Drag to reorder (SortableJS): only the grip drags, so the inputs stay
-// selectable. useSortable reorders the array in place; the new order is
-// saved once that has settled.
+// selectable. A drop moves the category in the shared list — which every
+// other place reads, so they all take the new order at once — and saves it.
+//
+// The move is made here, by hand: an onUpdate given to useSortable takes
+// the place of its own, which is the one that moves the array. Without it
+// SortableJS moved the row on screen, the list behind it stayed as it was,
+// and the old order was what got saved — so a reload put everything back.
+async function dropped(list: Ref<{ id: number }[]>, save: (ids: number[]) => Promise<unknown>, e: { oldIndex?: number, newIndex?: number }) {
+  if (e.oldIndex === undefined || e.newIndex === undefined || e.oldIndex === e.newIndex) return;
+  moveArrayElement(list, e.oldIndex, e.newIndex, e as Parameters<typeof moveArrayElement>[3]);
+  // moveArrayElement puts the item back in on the next tick.
+  await nextTick();
+  try {
+    await save(list.value.map(c => c.id));
+  }
+  catch (error) {
+    failed("plan.toast.reorderError", error);
+  }
+}
 const rulesEl = ref<HTMLElement | null>(null);
 useSortable(rulesEl, rules, {
   handle: ".drag-handle",
   animation: 150,
-  onUpdate: async () => {
-    await nextTick();
-    void reorderRules(rules.value.map(r => r.id));
-  },
+  onUpdate: (e: { oldIndex?: number, newIndex?: number }) => void dropped(rules, reorderRules, e),
 });
 const categoriesEl = ref<HTMLElement | null>(null);
 useSortable(categoriesEl, categories, {
   handle: ".drag-handle",
   animation: 150,
-  onUpdate: async () => {
-    await nextTick();
-    void reorderCategories(categories.value.map(c => c.id));
-  },
+  onUpdate: (e: { oldIndex?: number, newIndex?: number }) => void dropped(categories, reorderCategories, e),
 });
 </script>
 

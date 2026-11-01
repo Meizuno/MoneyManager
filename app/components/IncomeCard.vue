@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { IncomeRow } from "~/utils/budget";
 
-// Where the period's income came from, by income category, largest first.
+// Where the period's income came from, by income category, in the order the
+// categories are kept in on the budget page — the same order as everywhere
+// else, so a category is found where it always is rather than wherever this
+// month's amounts put it. The bars still say which was largest.
 const props = defineProps<{ rows: IncomeRow[]; period: string }>();
 
 const total = computed(() => props.rows.reduce((s, r) => s + r.amount, 0));
-const sorted = computed(() => [...props.rows].filter(r => r.amount > 0).sort((a, b) => b.amount - a.amount));
+const sorted = computed(() => props.rows.filter(r => r.amount > 0));
 const link = (row: IncomeRow) => ({ path: "/transactions", query: { period: props.period, type: "income", category: row.id } });
 </script>
 
