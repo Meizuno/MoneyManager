@@ -47,9 +47,14 @@ describe('createTransactionSchema — category input', () => {
     expect(createTransactionSchema.safeParse({ ...base, category: 2.5 }).success).toBe(false)
   })
 
-  it('requires a category — omitted or empty fails', () => {
-    expect(createTransactionSchema.safeParse({ ...base }).success).toBe(false)
-    expect(createTransactionSchema.safeParse({ ...base, category: '' }).success).toBe(false)
+  // Omitted is no longer a 400: the service takes the category the same
+  // name had last time, or the default (resolveCategoryScoped), and only
+  // refuses when there is neither.
+  it('lets the category be left out — omitted or empty is "none given"', () => {
+    const omitted = createTransactionSchema.safeParse({ ...base })
+    expect(omitted.success && omitted.data.category).toBeUndefined()
+    const empty = createTransactionSchema.safeParse({ ...base, category: '' })
+    expect(empty.success && empty.data.category).toBeUndefined()
   })
 
   it('accepts the numeric ids the client form sends (string or number)', () => {

@@ -4,6 +4,7 @@ import {
   createTransactionScoped,
   listTransactionsScoped,
   monthlyTotalsScoped,
+  resolveCategoryScoped,
   summarizeItems,
   summarizeTransactionsScoped,
   updateTransactionScoped
@@ -113,6 +114,87 @@ describe('createTransactionScoped — category integrity', () => {
     await createTransactionScoped('u1', { ...base, type: 'income', category: 5 })
     expect(db.incomeCategory.findFirst).toHaveBeenCalledOnce()
     expect(db.income.create).toHaveBeenCalledOnce()
+  })
+})
+
+// The category probe answers two questions with one findFirst: "does id N
+// exist" (where.id) and "which is the default" (where.is_default). This
+// answers both from a list of the user's categories.
+function categoriesAre(table: typeof db.expenseCategory, rows: { id: number, is_default?: boolean }[]) {
+  table.findFirst.mockImplementation((async ({ where }: { where: { id?: number, is_default?: boolean } }) => {
+    const hit = rows.find(r => where.id !== undefined ? r.id === where.id : Boolean(r.is_default) === where.is_default)
+    return hit ? { id: hit.id } : null
+  }) as never)
+}
+
+describe('createTransactionScoped — a category left out', () => {
+  it('takes the category the same name had last time', async () => {
+    categoriesAre(db.expenseCategory, [{ id: 3 }, { id: 4, is_default: true }])
+    db.expense.findFirst.mockResolvedValue({ category: 3 } as never)
+    await createTransactionScoped('u1', { ...base, type: 'expense' })
+    expect(db.expense.create.mock.calls[0][0].data.category).toBe(3)
+  })
+
+  it('looks the name up whole, ignoring case, latest first, in the right table and scope', async () => {
+    categoriesAre(db.incomeCategory, [{ id: 5 }])
+    db.income.findFirst.mockResolvedValue({ category: 5 } as never)
+    await createTransactionScoped('u1', { ...base, name: 'Salary', type: 'income' })
+    const query = (db.income.findFirst.mock.calls[0] as unknown as [Record<string, unknown>])[0]
+    expect(query).toMatchObject({
+      where: { user_id: 'u1', name: { equals: 'Salary', mode: 'insensitive' } },
+      orderBy: [{ date: 'desc' }, { id: 'desc' }]
+    })
+    expect(db.expense.findFirst).not.toHaveBeenCalled()
+    expect(db.income.create.mock.calls[0][0].data.category).toBe(5)
+  })
+
+  it('falls back to the default when the name is new', async () => {
+    categoriesAre(db.expenseCategory, [{ id: 3 }, { id: 4, is_default: true }])
+    await createTransactionScoped('u1', { ...base, type: 'expense' })
+    expect(db.expense.create.mock.calls[0][0].data.category).toBe(4)
+  })
+
+  it('skips a previous row whose category no longer exists, for the default', async () => {
+    categoriesAre(db.expenseCategory, [{ id: 4, is_default: true }])
+    db.expense.findFirst.mockResolvedValue({ category: 99 } as never)
+    await createTransactionScoped('u1', { ...base, type: 'expense' })
+    expect(db.expense.create.mock.calls[0][0].data.category).toBe(4)
+  })
+
+  it('refuses, and writes nothing, when there is neither', async () => {
+    categoriesAre(db.expenseCategory, [{ id: 3 }])
+    await expect(
+      createTransactionScoped('u1', { ...base, type: 'expense' })
+    ).rejects.toBeInstanceOf(CategoryRequired)
+    expect(db.expense.create).not.toHaveBeenCalled()
+  })
+
+  it('never looks anything up when a category is given', async () => {
+    categoriesAre(db.expenseCategory, [{ id: 3 }, { id: 4, is_default: true }])
+    await createTransactionScoped('u1', { ...base, type: 'expense', category: 3 })
+    expect(db.expense.findFirst).not.toHaveBeenCalled()
+    expect(db.expense.create.mock.calls[0][0].data.category).toBe(3)
+  })
+})
+
+describe('resolveCategoryScoped', () => {
+  it('says where the category came from', async () => {
+    categoriesAre(db.expenseCategory, [{ id: 3 }, { id: 4, is_default: true }])
+    db.expense.findFirst.mockResolvedValue({ category: 3 } as never)
+    expect(await resolveCategoryScoped('u1', 'expense', 'Lidl')).toEqual({ id: 3, source: 'previous' })
+    db.expense.findFirst.mockResolvedValue(null)
+    expect(await resolveCategoryScoped('u1', 'expense', 'Lidl')).toEqual({ id: 4, source: 'default' })
+  })
+
+  it('goes straight to the default for an empty name', async () => {
+    categoriesAre(db.expenseCategory, [{ id: 4, is_default: true }])
+    expect(await resolveCategoryScoped('u1', 'expense', '  ')).toEqual({ id: 4, source: 'default' })
+    expect(db.expense.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('is null when there is neither', async () => {
+    categoriesAre(db.incomeCategory, [{ id: 5 }])
+    expect(await resolveCategoryScoped('u1', 'income', 'Bonus')).toBeNull()
   })
 })
 

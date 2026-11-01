@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import type {
+  CategorySource,
   CreateTransactionInput,
   ListTransactionsQuery,
   MonthTotals,
@@ -12,8 +13,8 @@ import { DEFAULT_CURRENCY } from '#shared/schemas/transaction'
 import { firstDayOf, lastDayOf, monthsBetween } from '#shared/utils/months'
 import { getPrisma } from './db'
 import { CategoryNotFound, CategoryRequired, TransactionNotFound } from './errors'
-import { expenseCategoryExists, expenseCategoryLabels } from './expense-categories'
-import { incomeCategoryExists, incomeCategoryLabels } from './income-categories'
+import { defaultExpenseCategory, expenseCategoryExists, expenseCategoryLabels } from './expense-categories'
+import { defaultIncomeCategory, incomeCategoryExists, incomeCategoryLabels } from './income-categories'
 
 // Single home for transaction data-access. Income and Expense live in
 // separate Prisma tables but are one logical resource over HTTP/MCP/
@@ -261,16 +262,60 @@ function categoryLabelsFor(viewerId: string, type: TransactionType): Promise<Map
   return type === 'income' ? incomeCategoryLabels(viewerId) : expenseCategoryLabels(viewerId)
 }
 
+// The category a new transaction takes when it is created without one.
+//
+// First, whatever the last transaction of the same type and name was filed
+// under — "Lidl" went under Groceries last time, so it does again. The name
+// is compared whole, ignoring case and the spaces round it; "last" is the
+// latest by date, then by id. Then, the user's default for the type. Null
+// when there is neither, which the caller turns into "choose one".
+//
+// A previous row's category is checked to still exist rather than trusted:
+// deletion is refused while a category is in use, but rows older than that
+// rule can hold an id nothing answers to, and those fall through to the
+// default rather than being copied forward.
+export async function resolveCategoryScoped(
+  viewerId: string,
+  type: TransactionType,
+  name: string
+): Promise<{ id: number, source: CategorySource } | null> {
+  const wanted = name.trim()
+  if (wanted) {
+    const db = getPrisma()
+    const query = {
+      where: { user_id: viewerId, name: { equals: wanted, mode: 'insensitive' as const } },
+      orderBy: [{ date: 'desc' as const }, { id: 'desc' as const }],
+      select: { category: true }
+    }
+    const previous = type === 'income'
+      ? await db.income.findFirst(query)
+      : await db.expense.findFirst(query)
+    if (previous && previous.category > 0) {
+      const exists = type === 'income'
+        ? await incomeCategoryExists(viewerId, previous.category)
+        : await expenseCategoryExists(viewerId, previous.category)
+      if (exists) return { id: previous.category, source: 'previous' }
+    }
+  }
+  const fallback = type === 'income'
+    ? await defaultIncomeCategory(viewerId)
+    : await defaultExpenseCategory(viewerId)
+  return fallback === null ? null : { id: fallback, source: 'default' }
+}
+
 // Insert into the right table for the resolved type.
 export async function createTransactionScoped(
   viewerId: string,
   input: CreateTransactionInput
 ): Promise<Transaction> {
   const type = deriveType(input)
-  const category = input.category ?? 0
-  // Create requires a real, existing category: reject omitted / 0
-  // (uncategorised) here, then assertCategoryValid confirms the id exists
-  // for the resolved type. Updates still allow leaving it uncategorised.
+  // No category given: the last one used for this name, else the default
+  // (resolveCategoryScoped). Neither, or an explicit 0 (the old
+  // "uncategorised"), is refused: every stored transaction references a
+  // real category, and assertCategoryValid confirms a given id exists for
+  // the resolved type. Updates never look anything up; an omitted
+  // category there keeps the row's own.
+  const category = input.category ?? (await resolveCategoryScoped(viewerId, type, input.name))?.id
   if (!category) throw new CategoryRequired()
   await assertCategoryValid(viewerId, type, category)
   const data = {

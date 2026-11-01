@@ -100,15 +100,15 @@ All parameters are optional — omitting a parameter returns all records without
       'create_transaction',
       {
         description: `Create a new income or expense transaction.
-Required: date, name, amount, type, category.
-The category must be an EXISTING category id (from get_expense_categories or get_income_categories depending on type) — there is no uncategorised default on create.
+Required: date, name, amount, type.
+Optional: category — an EXISTING category id (from get_expense_categories or get_income_categories depending on type). Omit it to file the transaction under the category the user's last transaction of the same type and name had, or, if there is none, under the user's default category for the type (is_default in the category lists). If neither exists the call fails and a category has to be passed.
 Optional: currency (3-letter ISO code, defaults to CZK if omitted).`,
         inputSchema: z.object({
           date: z.string().describe('(required) Date in YYYY-MM-DD format.'),
           name: z.string().describe('(required) Transaction description.'),
           amount: z.number().positive().describe('(required) Amount as a positive number.'),
           type: z.enum(['income', 'expense']).describe("(required) Transaction type: 'income' or 'expense'."),
-          category: z.union([z.string(), z.number().int()]).describe('(required) An existing category ID from get_expense_categories or get_income_categories (matching the type). Uncategorised (0) is not allowed.'),
+          category: optCategoryId.describe('(optional) An existing category ID from get_expense_categories or get_income_categories (matching the type). Omit to reuse the category of the last transaction with this name, else the default category. Uncategorised (0) is not allowed.'),
           currency: optStr.describe('(optional) 3-letter ISO currency code, e.g. CZK, USD, EUR. Omit or pass empty string to leave unset.')
         })
       },
@@ -119,7 +119,7 @@ Optional: currency (3-letter ISO code, defaults to CZK if omitted).`,
           name,
           amount,
           type,
-          category: toCategoryId(category) ?? 0,
+          category: toCategoryId(category),
           currency: currency ?? null
         })
         return toJson(item)

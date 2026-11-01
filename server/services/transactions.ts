@@ -1,7 +1,9 @@
 import type { H3Event } from 'h3'
 import type {
+  CategorySuggestion,
   CreateTransactionInput,
   ListTransactionsQuery,
+  SuggestCategoryQuery,
   UpdateTransactionInput
 } from '#shared/schemas/transaction'
 import { authorize } from '../utils/principal'
@@ -9,6 +11,7 @@ import {
   createTransactionScoped,
   deleteTransactionScoped,
   listTransactionsScoped,
+  resolveCategoryScoped,
   summarizeTransactionsScoped,
   updateTransactionScoped
 } from '../utils/transactions'
@@ -44,4 +47,12 @@ export async function listTransactions(event: H3Event, query: ListTransactionsQu
 export async function summarizeTransactions(event: H3Event, query: ListTransactionsQuery) {
   const { userId } = await authorize(event, 'read')
   return summarizeTransactionsScoped(userId, query)
+}
+
+// What a transaction of this type and name would be filed under if it
+// were created without a category — the same resolution create runs, so
+// what the form shows is what the save does. A read: it writes nothing.
+export async function suggestCategory(event: H3Event, query: SuggestCategoryQuery): Promise<CategorySuggestion> {
+  const { userId } = await authorize(event, 'read')
+  return { category: await resolveCategoryScoped(userId, query.type, query.name) }
 }

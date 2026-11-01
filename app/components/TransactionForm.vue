@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { parseDate } from "@internationalized/date";
-import type { Transaction, TransactionType } from "#shared/schemas/transaction";
+import type { CategorySuggestion, Transaction, TransactionType } from "#shared/schemas/transaction";
 
 // The add/edit form inside TransactionEditor. The amount comes first and
 // large, the category is one tap on a chip, the date defaults to today.
 // An empty name takes the category's — the API requires one, and "Groceries
 // 450" is most of what a quick entry needs.
+//
+// A new entry needs no category picked. Left alone, it goes where the last
+// entry of the same name went, or to the default (the server's
+// suggest-category, the same rule its create runs), and the chip it will go
+// to is outlined with why, so nothing is filed out of sight. A tap picks a
+// category outright; a tap on the picked one hands it back to that rule.
 const props = defineProps<{
   transaction: Transaction | null;
   type: TransactionType;
@@ -14,6 +20,7 @@ const emit = defineEmits<{ done: [] }>();
 
 const { categoriesFor, ensureLoaded } = useCategories();
 const { createTransaction, updateTransaction, deleteTransaction } = useTransactions();
+const { apiFetch } = useAuth();
 
 const editing = props.transaction !== null;
 const today = localDay();
@@ -34,8 +41,60 @@ watch(() => form.type, () => {
   if (!chosen.value) form.category = null;
 });
 
+// What an unpicked category would be, for the type and name as they stand.
+// `suggestedFor` is the type and name the answer was given for, so a stale
+// one is never shown against a name that has since changed.
+const suggestion = ref<CategorySuggestion["category"]>(null);
+const suggestedFor = ref<string | null>(null);
+const asked = computed(() => `${form.type}|${form.name.trim().toLowerCase()}`);
+const settled = computed(() => suggestedFor.value === asked.value);
+const auto = computed(() => {
+  if (editing || form.category !== null || !settled.value || !suggestion.value) return undefined;
+  const id = suggestion.value.id;
+  return categories.value.find(c => c.id === id);
+});
+// Nothing picked, and the rule has nothing to offer either.
+const needsChoice = computed(() => !editing && !chosen.value && settled.value && !auto.value);
+
+let asking: ReturnType<typeof setTimeout> | undefined;
+let latest = 0;
+async function suggest() {
+  clearTimeout(asking);
+  const question = asked.value;
+  const mine = ++latest;
+  let answer: CategorySuggestion["category"] = null;
+  try {
+    answer = (await apiFetch<CategorySuggestion>("/api/transactions/suggest-category", {
+      query: { type: form.type, name: form.name.trim() },
+    })).category;
+  }
+  catch { /* no suggestion: a category has to be picked */ }
+  if (mine !== latest) return;
+  suggestion.value = answer;
+  suggestedFor.value = question;
+}
+watch(asked, () => {
+  if (editing || form.category !== null) return;
+  clearTimeout(asking);
+  asking = setTimeout(() => void suggest(), 250);
+});
+
+function pick(id: number) {
+  // The picked chip again: back to the rule, on a new entry. An edit keeps
+  // the category it has — nothing is looked up for one.
+  if (form.category === id && !editing) {
+    form.category = null;
+    if (!settled.value) void suggest();
+    return;
+  }
+  form.category = id;
+}
+
 const amount = computed(() => parseAmount(form.amount));
-const valid = computed(() => amount.value !== null && amount.value > 0 && chosen.value !== undefined && Boolean(form.date));
+// Unsettled counts as fine: save waits for the answer rather than the
+// button going dead for a moment after every keystroke in the name.
+const valid = computed(() => amount.value !== null && amount.value > 0 && Boolean(form.date)
+  && (chosen.value !== undefined || auto.value !== undefined || (!editing && !settled.value)));
 
 const calendarOpen = ref(false);
 const calendarDate = computed({
@@ -61,20 +120,30 @@ const otherDay = computed(() => form.date !== today && form.date !== yesterday);
 const amountField = ref<HTMLInputElement | null>(null);
 onMounted(() => {
   void ensureLoaded();
-  if (!editing) setTimeout(() => amountField.value?.focus(), 50);
+  if (!editing) {
+    void suggest();
+    setTimeout(() => amountField.value?.focus(), 50);
+  }
 });
+onBeforeUnmount(() => clearTimeout(asking));
 
 const saving = ref(false);
 async function save() {
   if (!valid.value || saving.value) return;
   saving.value = true;
+  if (!chosen.value && !settled.value) await suggest();
+  const category = chosen.value ?? auto.value;
+  if (!category) {
+    saving.value = false;
+    return;
+  }
   const input = {
     date: form.date,
-    name: form.name.trim() || chosen.value!.label,
+    name: form.name.trim() || category.label,
     amount: amount.value!,
     currency: form.currency.trim().toUpperCase() || "CZK",
     type: form.type,
-    category: chosen.value!.id,
+    category: category.id,
   };
   const ok = props.transaction
     ? await updateTransaction(props.transaction.id, input)
@@ -167,18 +236,34 @@ const TYPES = [
           type="button"
           :aria-pressed="form.category === category.id"
           class="inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition"
-          :class="form.category === category.id ? 'font-medium text-highlighted' : 'border-default text-default hover:bg-elevated'"
+          :class="form.category === category.id
+            ? 'font-medium text-highlighted'
+            : auto?.id === category.id
+              ? 'border-dashed font-medium text-highlighted'
+              : 'border-default text-default hover:bg-elevated'"
           :style="form.category === category.id
             ? { backgroundColor: `${categoryHex(category.color)}26`, borderColor: categoryHex(category.color) }
-            : {}"
-          @click="form.category = category.id"
+            : auto?.id === category.id
+              ? { borderColor: categoryHex(category.color) }
+              : {}"
+          @click="pick(category.id)"
         >
           <span class="size-2 rounded-full" :style="{ backgroundColor: categoryHex(category.color) }" />
           {{ category.label }}
+          <span
+            v-if="auto?.id === category.id && suggestion"
+            class="-mr-1 rounded-full bg-elevated px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted"
+          >{{ $t(suggestion.source === 'previous' ? 'form.autoPrevious' : 'form.autoDefault') }}</span>
         </button>
       </div>
       <p v-else class="text-sm text-muted">
         {{ $t(form.type === 'income' ? 'form.noIncomeCategories' : 'form.noExpenseCategories') }}
+      </p>
+      <p v-if="categories.length && needsChoice && form.name.trim()" class="mt-2 text-xs text-warning">
+        {{ $t('form.chooseCategory') }}
+      </p>
+      <p v-else-if="categories.length && !editing && !chosen" class="mt-2 text-xs text-muted">
+        {{ $t('form.autoHint') }}
       </p>
     </div>
 
@@ -186,7 +271,7 @@ const TYPES = [
     <UFormField :label="$t('form.name')" :hint="$t('form.optional')">
       <UInput
         v-model="form.name"
-        :placeholder="chosen?.label ?? $t('form.namePlaceholder')"
+        :placeholder="chosen?.label ?? auto?.label ?? $t('form.namePlaceholder')"
         size="lg"
         class="w-full"
       />

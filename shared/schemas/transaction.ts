@@ -78,27 +78,6 @@ const categorySchema = z.union([z.number(), z.string()])
     return parsed
   })
 
-// Like categorySchema but REQUIRED: create demands a category, so an
-// empty/omitted value is a validation error rather than "uncategorised".
-// (The id must also *exist* — that's the downstream assertCategoryValid
-// check; id 0 / uncategorised is rejected for creates in the service.)
-const requiredCategorySchema = z.union([z.number(), z.string()])
-  .transform((v, ctx) => {
-    const parsed = parseCategoryId(v)
-    if (parsed === INVALID_CATEGORY_ID) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'category must be a numeric id from get_expense_categories / get_income_categories'
-      })
-      return z.NEVER
-    }
-    if (parsed === undefined) {
-      ctx.addIssue({ code: 'custom', message: 'category is required' })
-      return z.NEVER
-    }
-    return parsed
-  })
-
 // Default currency applied when a transaction is created without one —
 // the app is CZK-centric (the form pre-fills it, display falls back to
 // it). Creating via the API or MCP with no currency stores this rather
@@ -121,10 +100,11 @@ export const createTransactionSchema = z.object({
   amount: amountSchema,
   currency: currencySchema,
   type: transactionTypeSchema.optional(),
-  // Required on create: every new transaction must reference a real
-  // category (the service additionally rejects 0/uncategorised and
-  // checks existence).
-  category: requiredCategorySchema
+  // Optional on create. Omitted, the service takes the category of the
+  // last transaction of the same type and name, else the user's default
+  // for the type (resolveCategoryScoped); only when there is neither is
+  // it an error. Every stored transaction still references a real one.
+  category: categorySchema.optional()
 })
 // Post-validation type — what the service receives (numbers are
 // already coerced, strings already trimmed). Use server-side.
@@ -137,12 +117,9 @@ export type CreateTransactionPayload = z.input<typeof createTransactionSchema>
 
 // PUT /api/transactions/[id]. Same shape as create but every field
 // optional: only the keys present in the body are written. Type
-// changes move the row between the income/expense tables.
-// Update keeps category OPTIONAL (only create requires it): override the
-// create's required-category field back to the optional categorySchema.
-export const updateTransactionSchema = createTransactionSchema.partial().extend({
-  category: categorySchema.optional()
-})
+// changes move the row between the income/expense tables. An omitted
+// category here keeps the row's own — nothing is looked up.
+export const updateTransactionSchema = createTransactionSchema.partial()
 export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>
 export type UpdateTransactionPayload = z.input<typeof updateTransactionSchema>
 
@@ -163,6 +140,26 @@ export const listTransactionsQuerySchema = z.object({
   dateTo: isoDateSchema.optional()
 })
 export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>
+
+// GET /api/transactions/suggest-category — what a transaction of this
+// type and name would be filed under if created without a category, so
+// the form can show it before anything is saved. An empty name asks only
+// for the default.
+export const suggestCategoryQuerySchema = z.object({
+  type: transactionTypeSchema,
+  name: z.string().trim().max(200).default('')
+})
+export type SuggestCategoryQuery = z.infer<typeof suggestCategoryQuerySchema>
+
+// Where a category taken for a transaction came from: the last one of the
+// same name, or the user's default for the type.
+export type CategorySource = 'previous' | 'default'
+
+// The answer to suggest-category: the category and why, or null when a
+// transaction of that name would need one chosen.
+export type CategorySuggestion = {
+  category: { id: number, source: CategorySource } | null
+}
 
 // The summary endpoint takes the same filters as the list (the query
 // schema is shared) but returns DB-side aggregates instead of rows, so

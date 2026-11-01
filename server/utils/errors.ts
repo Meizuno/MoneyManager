@@ -97,15 +97,15 @@ export class CategoryInUse extends DomainError {
   }
 }
 
-// 400 — a transaction create supplied no real category (omitted, empty,
-// or the 0/uncategorised sentinel). Creates must reference an existing
-// category; updates may still leave it unset.
+// 400 — a transaction create ended with no real category: none given (or
+// the 0/uncategorised sentinel), none used before for that name, and no
+// default set. Every stored transaction references an existing category.
 export class CategoryRequired extends DomainError {
   constructor() {
     super(
       400,
       'Category required',
-      'category is required and must be an existing category id from get_expense_categories / get_income_categories'
+      'No category was given, none has been used before for a transaction of this name, and no default category is set. Pass category: an existing id from get_expense_categories / get_income_categories'
     )
   }
 }
