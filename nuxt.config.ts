@@ -17,8 +17,13 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      // The tab icon is the header's mark, as is the home-screen one. The
+      // PNG is for Safari, which shows no SVG on a tab; everybody else takes
+      // the SVG listed after it. ?v= changes with the drawing: browsers keep
+      // a favicon long past any cache header.
       link: [
-        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+        { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32.png?v=2" },
+        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg?v=2" },
         { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       ],
       meta: [
