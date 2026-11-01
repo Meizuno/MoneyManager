@@ -96,7 +96,9 @@
     "newIncome": "New income",
     "editTitle": "Edit transaction",
     "newDescription": "Enter the amount and a date. The category can be left: the entry goes where the same name went last time, or to your default.",
-    "editDescription": "Change any field and save, or delete the transaction."
+    "editDescription": "Change any field and save, or delete the transaction.",
+    "editRecurringTitle": "Recurring transaction",
+    "editRecurringDescription": "Change what it writes from now on, pause it, or delete it."
   },
   "form": {
     "type": "Type",
@@ -117,8 +119,26 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "otherDay": "Other day",
+    "starts": "Starts",
+    "repeat": "Repeat",
+    "repeats": {
+      "none": "Never",
+      "day": "Daily",
+      "week": "Weekly",
+      "month": "Monthly",
+      "year": "Yearly"
+    },
+    "every": "Every",
+    "until": "Until",
+    "noEnd": "No end",
+    "from": "from {date}",
+    "repeatHint": "Written by itself on each date — the first one now, if it is already due. Monthly keeps the day; the 31st falls on the last day of shorter months.",
+    "paused": "Paused",
+    "pausedHint": "Nothing is written while paused. Resumed, it goes on from the next date after today.",
     "addExpense": "Add expense",
     "addIncome": "Add income",
+    "addRecurringExpense": "Add recurring expense",
+    "addRecurringIncome": "Add recurring income",
     "saveChanges": "Save changes",
     "confirmDelete": "Click again to delete"
   },
@@ -181,5 +201,34 @@
   "pull": {
     "pull": "Pull to refresh",
     "release": "Release to refresh"
+  },
+  "recurring": {
+    "title": "Recurring",
+    "badge": "Recurring",
+    "upcoming": "Next: {name}, {date}",
+    "next": "next {date}",
+    "paused": "paused",
+    "finished": "finished",
+    "each": {
+      "day": "Every day",
+      "week": "Every week",
+      "month": "Every month",
+      "year": "Every year"
+    },
+    "everyN": "Every {count} {unit}",
+    "units": {
+      "day": "day | days",
+      "week": "week | weeks",
+      "month": "month | months",
+      "year": "year | years"
+    },
+    "toast": {
+      "added": "Recurring transaction added",
+      "updated": "Recurring transaction updated",
+      "deleted": "Recurring transaction deleted",
+      "addError": "Couldn't add the recurring transaction",
+      "updateError": "Couldn't update the recurring transaction",
+      "deleteError": "Couldn't delete the recurring transaction"
+    }
   }
 }

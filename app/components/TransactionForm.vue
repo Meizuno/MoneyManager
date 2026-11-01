@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { parseDate } from "@internationalized/date";
+import type { RecurringTransaction } from "#shared/schemas/recurring";
 import type { CategorySuggestion, Transaction, TransactionType } from "#shared/schemas/transaction";
+import { RECURRENCE_UNITS, type RecurrenceUnit } from "#shared/utils/recurrence";
 
 // The add/edit form inside TransactionEditor. The amount comes first and
 // large, the category is one tap on a chip, the date defaults to today.
@@ -12,27 +14,47 @@ import type { CategorySuggestion, Transaction, TransactionType } from "#shared/s
 // suggest-category, the same rule its create runs), and the chip it will go
 // to is outlined with why, so nothing is filed out of sight. A tap picks a
 // category outright; a tap on the picked one hands it back to that rule.
+//
+// A new entry can repeat — every N days, weeks, months or years from its
+// date, until a date or for good — and is then saved as a recurring
+// transaction, which the server writes on each date. Opened on one
+// (`recurring`), the form changes what it writes from now on, pauses it, or
+// deletes it; its schedule is shown, not edited.
 const props = defineProps<{
   transaction: Transaction | null;
+  recurring?: RecurringTransaction | null;
   type: TransactionType;
 }>();
 const emit = defineEmits<{ done: [] }>();
 
 const { categoriesFor, ensureLoaded } = useCategories();
 const { createTransaction, updateTransaction, deleteTransaction } = useTransactions();
+const { createRecurring, updateRecurring, deleteRecurring, scheduleLabel } = useRecurring();
 const { apiFetch } = useAuth();
 
-const editing = props.transaction !== null;
+const rule = props.recurring ?? null;
+// Something that exists already: nothing is suggested for it, and it can be
+// deleted.
+const editing = props.transaction !== null || rule !== null;
 const today = localDay();
 const yesterday = previousDay(today);
 
 const form = reactive({
-  type: props.transaction?.type ?? props.type,
-  amount: props.transaction ? props.transaction.amount.toFixed(2) : "",
-  currency: props.transaction?.currency ?? "CZK",
-  name: props.transaction?.name ?? "",
-  category: props.transaction?.category.id ?? null as number | null,
-  date: props.transaction?.date ?? today,
+  type: props.transaction?.type ?? rule?.type ?? props.type,
+  amount: (props.transaction?.amount ?? rule?.amount)?.toFixed(2) ?? "",
+  currency: props.transaction?.currency ?? rule?.currency ?? "CZK",
+  name: props.transaction?.name ?? rule?.name ?? "",
+  category: props.transaction?.category.id ?? rule?.category.id ?? null as number | null,
+  date: props.transaction?.date ?? rule?.start_date ?? today,
+  repeat: (rule?.unit ?? "none") as "none" | RecurrenceUnit,
+  every: String(rule?.every ?? 1),
+  until: rule?.end_date ?? null as string | null,
+  paused: rule?.paused ?? false,
+});
+const repeating = computed(() => form.repeat !== "none");
+const every = computed(() => {
+  const n = Number(form.every);
+  return Number.isInteger(n) && n >= 1 && n <= 999 ? n : null;
 });
 
 const categories = computed(() => categoriesFor(form.type));
@@ -94,7 +116,37 @@ const amount = computed(() => parseAmount(form.amount));
 // Unsettled counts as fine: save waits for the answer rather than the
 // button going dead for a moment after every keystroke in the name.
 const valid = computed(() => amount.value !== null && amount.value > 0 && Boolean(form.date)
-  && (chosen.value !== undefined || auto.value !== undefined || (!editing && !settled.value)));
+  && (chosen.value !== undefined || auto.value !== undefined || (!editing && !settled.value))
+  && (!repeating.value || (every.value !== null && (!form.until || form.until >= form.date))));
+
+// The end date's calendar, and the repeat's own words for the schedule.
+const untilOpen = ref(false);
+const untilDate = computed({
+  get: () => {
+    try {
+      return form.until ? parseDate(form.until) : undefined;
+    }
+    catch {
+      return undefined;
+    }
+  },
+  set: (value) => {
+    if (!value) return;
+    form.until = value.toString();
+    untilOpen.value = false;
+  },
+});
+const untilMin = computed(() => {
+  try {
+    return parseDate(form.date);
+  }
+  catch {
+    return undefined;
+  }
+});
+const schedule = computed(() => (repeating.value && every.value !== null
+  ? scheduleLabel(form.repeat as RecurrenceUnit, every.value)
+  : ""));
 
 const calendarOpen = ref(false);
 const calendarDate = computed({
@@ -145,9 +197,35 @@ async function save() {
     type: form.type,
     category: category.id,
   };
-  const ok = props.transaction
-    ? await updateTransaction(props.transaction.id, input)
-    : await createTransaction(input);
+  let ok: boolean;
+  if (rule) {
+    ok = await updateRecurring(rule.id, {
+      name: input.name,
+      amount: input.amount,
+      currency: input.currency,
+      category: input.category,
+      end_date: form.until,
+      paused: form.paused,
+    });
+  }
+  else if (repeating.value && !props.transaction) {
+    ok = await createRecurring({
+      type: input.type,
+      name: input.name,
+      amount: input.amount,
+      currency: input.currency,
+      category: input.category,
+      unit: form.repeat as RecurrenceUnit,
+      every: every.value!,
+      start_date: form.date,
+      end_date: form.until,
+    });
+  }
+  else {
+    ok = props.transaction
+      ? await updateTransaction(props.transaction.id, input)
+      : await createTransaction(input);
+  }
   saving.value = false;
   if (ok) emit("done");
 }
@@ -156,7 +234,7 @@ async function save() {
 const armed = ref(false);
 let disarm: ReturnType<typeof setTimeout> | undefined;
 async function remove() {
-  if (!props.transaction) return;
+  if (!props.transaction && !rule) return;
   if (!armed.value) {
     armed.value = true;
     disarm = setTimeout(() => (armed.value = false), 3000);
@@ -164,7 +242,7 @@ async function remove() {
   }
   clearTimeout(disarm);
   saving.value = true;
-  const ok = await deleteTransaction(props.transaction.id);
+  const ok = rule ? await deleteRecurring(rule.id) : await deleteTransaction(props.transaction!.id);
   saving.value = false;
   if (ok) emit("done");
 }
@@ -174,6 +252,7 @@ const TYPES = [
   { value: "expense", icon: "i-heroicons-arrow-trending-down" },
   { value: "income", icon: "i-heroicons-arrow-trending-up" },
 ] as const;
+const REPEATS = ["none", ...RECURRENCE_UNITS] as const;
 </script>
 
 <template>
@@ -186,7 +265,8 @@ const TYPES = [
         type="button"
         role="radio"
         :aria-checked="form.type === option.value"
-        class="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition"
+        :disabled="rule !== null && form.type !== option.value"
+        class="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
         :class="form.type === option.value
           ? 'bg-default text-highlighted shadow-sm'
           : 'text-muted hover:text-highlighted'"
@@ -277,9 +357,10 @@ const TYPES = [
       />
     </UFormField>
 
-    <!-- Date -->
-    <div>
-      <span class="mb-2 block text-sm font-medium text-default">{{ $t('form.date') }}</span>
+    <!-- Date: when it happened, or when a repeat starts. A recurring
+         transaction's start is fixed, so its form has none. -->
+    <div v-if="!rule">
+      <span class="mb-2 block text-sm font-medium text-default">{{ $t(repeating ? 'form.starts' : 'form.date') }}</span>
       <div class="flex flex-wrap gap-2">
         <UButton
           size="sm"
@@ -313,6 +394,68 @@ const TYPES = [
       </div>
     </div>
 
+    <!-- Repeat: on a new entry, never or every N units; on a recurring one,
+         its schedule, its end and whether it is running. An edit of a
+         single transaction has none — that is one occurrence. -->
+    <div v-if="!transaction">
+      <span class="mb-2 block text-sm font-medium text-default">{{ $t('form.repeat') }}</span>
+      <div v-if="!rule" class="flex flex-wrap gap-2">
+        <UButton
+          v-for="option in REPEATS"
+          :key="option"
+          size="sm"
+          :color="form.repeat === option ? 'primary' : 'neutral'"
+          :variant="form.repeat === option ? 'soft' : 'outline'"
+          @click="form.repeat = option"
+        >
+          {{ $t(`form.repeats.${option}`) }}
+        </UButton>
+      </div>
+      <p v-else class="flex items-center gap-2 text-sm text-default">
+        <UIcon name="i-heroicons-arrow-path" class="size-4 text-muted" />
+        {{ scheduleLabel(rule.unit, rule.every) }} · {{ $t('form.from', { date: shortDay(rule.start_date) }) }}
+      </p>
+
+      <div v-if="repeating" class="mt-3 flex flex-col gap-3 rounded-2xl border border-default p-3">
+        <label v-if="!rule" class="flex items-center gap-2 text-sm text-default">
+          {{ $t('form.every') }}
+          <input
+            v-model="form.every"
+            inputmode="numeric"
+            maxlength="3"
+            :aria-label="$t('form.every')"
+            class="w-12 rounded-lg border border-default bg-default px-2 py-1 text-center tabular-nums text-highlighted outline-none focus:border-primary"
+          >
+          {{ $t(`recurring.units.${form.repeat}`, every ?? 1) }}
+          <span v-if="schedule" class="ml-auto text-xs text-muted">{{ schedule }}</span>
+        </label>
+
+        <div class="flex items-center gap-2 text-sm text-default">
+          <span>{{ $t('form.until') }}</span>
+          <UPopover v-model:open="untilOpen">
+            <UButton size="sm" color="neutral" variant="outline" icon="i-heroicons-calendar-days">
+              {{ form.until ? shortDay(form.until) : $t('form.noEnd') }}
+            </UButton>
+            <template #content>
+              <UCalendar v-model="untilDate" :min-value="untilMin" locale="en-GB" class="p-2" />
+            </template>
+          </UPopover>
+          <UButton
+            v-if="form.until"
+            size="sm"
+            color="neutral"
+            variant="ghost"
+            icon="i-heroicons-x-mark"
+            :aria-label="$t('form.noEnd')"
+            @click="form.until = null"
+          />
+        </div>
+
+        <USwitch v-if="rule" v-model="form.paused" :label="$t('form.paused')" :description="$t('form.pausedHint')" />
+        <p v-else class="text-xs text-muted">{{ $t('form.repeatHint') }}</p>
+      </div>
+    </div>
+
     <!-- Actions -->
     <div class="flex items-center gap-2 pt-1">
       <UButton
@@ -327,7 +470,11 @@ const TYPES = [
         {{ armed ? $t('form.confirmDelete') : $t('common.delete') }}
       </UButton>
       <UButton type="submit" size="lg" block class="flex-1" :disabled="!valid" :loading="saving">
-        {{ editing ? $t('form.saveChanges') : $t(form.type === 'income' ? 'form.addIncome' : 'form.addExpense') }}
+        {{ editing
+          ? $t('form.saveChanges')
+          : repeating
+            ? $t(form.type === 'income' ? 'form.addRecurringIncome' : 'form.addRecurringExpense')
+            : $t(form.type === 'income' ? 'form.addIncome' : 'form.addExpense') }}
       </UButton>
     </div>
   </form>

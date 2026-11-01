@@ -68,7 +68,17 @@ const foreign = (tx: Transaction) => tx.currency && tx.currency.toUpperCase() !=
               {{ (tx.category.label || tx.name).charAt(0).toUpperCase() }}
             </span>
             <span class="min-w-0 flex-1">
-              <span class="block truncate text-sm font-medium text-highlighted">{{ tx.name }}</span>
+              <!-- ↻: written by a recurring transaction. Opening it edits this
+                   one occurrence; the rule is under Recurring. -->
+              <span class="flex items-center gap-1 text-sm font-medium text-highlighted">
+                <span class="truncate">{{ tx.name }}</span>
+                <UIcon
+                  v-if="tx.recurring_id"
+                  name="i-heroicons-arrow-path"
+                  class="size-3.5 shrink-0 text-muted"
+                  :aria-label="$t('recurring.badge')"
+                />
+              </span>
               <span class="block truncate text-xs text-muted">{{ tx.category.label }}</span>
             </span>
             <span

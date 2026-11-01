@@ -129,6 +129,8 @@ useHead({ title: t("transactions.pageTitle") });
       </div>
     </div>
 
+    <RecurringList />
+
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-sm text-muted" :class="{ 'opacity-60': status === 'pending' }">
       <span>{{ $t('transactions.count', { count: filtered.length }, filtered.length) }}</span>
       <span v-if="totals.income" class="tabular-nums text-emerald-600 dark:text-emerald-400">+{{ formatNumber(totals.income) }}</span>

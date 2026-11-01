@@ -13,9 +13,12 @@ const open = computed({
 });
 
 // Read out by screen readers; the form explains itself on screen.
-const description = computed(() => t(state.value.transaction ? "editor.editDescription" : "editor.newDescription"));
+const description = computed(() => t(state.value.recurring
+  ? "editor.editRecurringDescription"
+  : state.value.transaction ? "editor.editDescription" : "editor.newDescription"));
 
 const title = computed(() => {
+  if (state.value.recurring) return t("editor.editRecurringTitle");
   if (state.value.transaction) return t("editor.editTitle");
   return t(state.value.type === "income" ? "editor.newIncome" : "editor.newExpense");
 });
@@ -46,7 +49,7 @@ onMounted(() => {
     :ui="{ body: 'pb-6', description: 'sr-only' }"
   >
     <template #body>
-      <TransactionForm :key="opening" :transaction="state.transaction" :type="state.type" @done="close" />
+      <TransactionForm :key="opening" :transaction="state.transaction" :recurring="state.recurring" :type="state.type" @done="close" />
     </template>
   </UDrawer>
   <UModal
@@ -57,7 +60,7 @@ onMounted(() => {
     :ui="{ content: 'sm:max-w-md', description: 'sr-only' }"
   >
     <template #body>
-      <TransactionForm :key="opening" :transaction="state.transaction" :type="state.type" @done="close" />
+      <TransactionForm :key="opening" :transaction="state.transaction" :recurring="state.recurring" :type="state.type" @done="close" />
     </template>
   </UModal>
 </template>
