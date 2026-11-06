@@ -41,6 +41,10 @@ export default defineNuxtConfig({
   modules: ["@nuxt/ui", "@nuxtjs/i18n", "@nuxt/eslint"],
   css: ["~/assets/css/main.css"],
 
+  // The fonts are in the app (assets/css/fonts.css), so Nuxt UI's @nuxt/fonts
+  // has nothing to fetch: off, rather than a second set of the same faces.
+  ui: { fonts: false },
+
   i18n: {
     defaultLocale: "en",
     locales: [
