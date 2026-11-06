@@ -52,6 +52,15 @@ export default defineNuxtConfig({
     ],
     langDir: "locales",
     strategy: "no_prefix",
+    experimental: {
+      // The app asks for its messages (/_i18n/<build hash>/en/messages.json)
+      // before it starts, on every open, and they came with max-age=10: a
+      // round trip each time. Their address changes with every build, so
+      // what is at one never does — kept a year, the request after the first
+      // is answered by the browser. (`preload`, which puts them in the page,
+      // only made the page heavier: 10.2 still fetches them.)
+      httpCacheDuration: 60 * 60 * 24 * 365,
+    },
   },
   runtimeConfig: {
     // Server-to-server base (token validate / refresh / me). In production
