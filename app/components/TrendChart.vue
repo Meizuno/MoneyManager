@@ -1,8 +1,16 @@
-<script setup lang="ts">
-import { Bar } from "vue-chartjs";
+<script lang="ts">
+import { BarElement, CategoryScale, Chart, Legend, LinearScale, Title, Tooltip } from "chart.js";
 import type { ChartOptions, TooltipItem } from "chart.js";
+import { Bar } from "vue-chartjs";
 import type { MonthTotals } from "#shared/schemas/transaction";
 import { periodLabel, shortMonthLabel } from "~/utils/period";
+
+// Only the pieces this bar chart uses, registered once, where it is: Chart.js
+// comes with the chart, in its chunk, rather than with every page of the app.
+Chart.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
+</script>
+
+<script setup lang="ts">
 
 // Income and expenses month by month. The month on screen is in full
 // colour and the rest are muted; a click anywhere in a month's column

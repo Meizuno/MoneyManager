@@ -3,6 +3,7 @@ import type { OverviewResponse } from "#shared/schemas/overview";
 import { addMonths } from "#shared/utils/months";
 import { budgetRows, incomeRows, unallocated } from "~/utils/budget";
 import { elapsedShare, isMonth, periodLabel } from "~/utils/period";
+import TrendSkeleton from "~/components/TrendSkeleton.vue";
 
 // The month's budget: what is left, each category against its plan, where
 // the income came from, the last twelve months, and the latest entries.
@@ -58,6 +59,15 @@ onMounted(() => {
 });
 
 useHead({ title: t("overview.pageTitle") });
+
+// The trend comes in a chunk of its own, after the page is up: Chart.js is
+// the heaviest thing here and the chart the last thing anybody reads. Its
+// skeleton holds the place meanwhile, so nothing below it jumps.
+const TrendChart = defineAsyncComponent({
+  loader: () => import("~/components/TrendChart.vue"),
+  loadingComponent: TrendSkeleton,
+  delay: 0,
+});
 </script>
 
 <template>
@@ -91,7 +101,7 @@ useHead({ title: t("overview.pageTitle") });
         <ClientOnly>
           <TrendChart v-if="data?.trend.length" :trend="data.trend" :selected="isMonth(period) ? period : null" @select="openMonth" />
           <template #fallback>
-            <section class="panel h-80 p-6"><USkeleton class="h-full w-full" /></section>
+            <TrendSkeleton />
           </template>
         </ClientOnly>
       </div>
